@@ -7,14 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "contract:emit": "prisma contract emit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
-    "@opennextjs/cloudflare": "^1.20.17",
     "@prisma/orm-postgres": "^8.0.0-rc.24",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.10",
@@ -39,7 +35,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "prisma": "^8.0.0-rc.34",
-    "typescript": "^5",
-    "wrangler": "^4.161.0"
+    "typescript": "^5"
   }
 }

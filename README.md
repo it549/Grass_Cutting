@@ -2,70 +2,102 @@
 
 มีครบ: สมัคร/เข้าสู่ระบบ · หลายบริษัท (หัวกระดาษ โลโก้ แยกข้อมูลกันที่ฐานข้อมูล) · แขวงและหมวด · งวดและใบสั่งจ้าง (Claude อ่าน PDF ใบสั่งจ้างให้) · รูปก่อน/หลังรายสาย · PDF รายงานภาพถ่าย ใบสรุปงวด ชุดส่งงวด · ใบเสนอราคา หนังสือส่งมอบงาน ใบกำกับภาษี/ใบเสร็จ · บันทึกรายวัน ค่าแรง ใบสำคัญจ่าย · ย้ายข้อมูลจากระบบเดิม · บทบาทและสิทธิ์ 5 แบบ
 
-เครื่องมือ: Next.js 16 · Supabase (ฐานข้อมูล ล็อกอิน ที่เก็บไฟล์) · Cloudflare Workers · Claude API
+เครื่องมือ: Next.js 16 · PostgreSQL (รันเองในเครื่อง/เซิร์ฟเวอร์) · auth เขียนเอง (bcrypt + JWT cookie) · เก็บไฟล์บนดิสก์เครื่องเดียวกัน · Cloudflare Tunnel (เปิดให้เข้าถึงจากอินเทอร์เน็ต) · Claude API
 
-> ไฟล์นี้สำหรับ**เริ่มใหม่**กับโปรเจกต์ Supabase ที่ยังว่าง ถ้าจะใช้ฐานข้อมูลเดิมที่รัน 0001–0004 ไปแล้ว ให้รันแค่ `supabase/migrations/0005_roles.sql` แล้วอัปโหลดโค้ดทับ (ข้อมูลเดิมไม่หาย)
+> โปรเจกต์นี้**ไม่ใช้ Supabase/Cloudflare Workers แล้ว** — ฐานข้อมูล ล็อกอิน และที่เก็บไฟล์ทั้งหมดรันเองบนเครื่อง/เซิร์ฟเวอร์ที่คุมเอง ส่วน Cloudflare ใช้แค่ Tunnel สำหรับเปิดพอร์ตให้เข้าถึงจากอินเทอร์เน็ตโดยไม่ต้องเปิด router เอง
 
 ---
 
-## ขั้นที่ 1 · อัปโหลดโค้ดขึ้น GitHub
+## ขั้นที่ 1 · ติดตั้ง PostgreSQL + สร้างฐานข้อมูล
 
-1. แตกไฟล์ zip
-2. เปิด repo `grass-cutting` บน GitHub → **Add file → Upload files** → เปิดโฟลเดอร์ `grass-cutting` ที่แตกออกมา แล้วลาก**ของข้างใน**ทั้งหมด (ไม่ใช่ลากตัวโฟลเดอร์) (ไม่ต้องมี `node_modules`) → **Commit changes**
-   - ไฟล์ที่ขึ้นต้นด้วยจุด เช่น `.gitignore` `.env.example` บน Mac อาจถูกซ่อน กด `Cmd + Shift + .` ใน Finder เพื่อให้เห็น
+1. ติดตั้ง PostgreSQL (เครื่องนี้ใช้เวอร์ชัน 18 ที่ `C:\Program Files\PostgreSQL\18\bin\psql.exe` — ถ้า `psql` ไม่อยู่ใน PATH ให้เรียกเต็ม path แบบนี้)
+2. สร้างฐานข้อมูลเปล่าชื่อ `grass_cutting`
+   ```bash
+   "C:\Program Files\PostgreSQL\18\bin\createdb.exe" -U postgres grass_cutting
+   ```
+3. ติดตั้ง schema (รันครั้งเดียวตอนฐานข้อมูลว่าง)
+   ```bash
+   "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -d grass_cutting -f scripts/local_postgres_schema.sql
+   ```
 
-## ขั้นที่ 2 · ตั้งค่าฐานข้อมูล Supabase
+## ขั้นที่ 2 · ตั้งค่า `.env`
 
-1. เข้า supabase.com → **New project** (แนะนำเซิร์ฟเวอร์ Singapore) รอสร้างเสร็จ
-   - ถ้าจะใช้โปรเจกต์เดิมแต่ล้างข้อมูลทั้งหมด สร้างโปรเจกต์ใหม่ง่ายกว่าและปลอดภัยกว่า
-2. เมนู **SQL Editor → New query** → เปิดไฟล์ `supabase/setup_all.sql` คัดลอกทั้งหมดมาวาง → **Run**
-   - ต้องขึ้น `Success. No rows returned` ถ้าขึ้น error ส่งข้อความ error มาให้ผมดู
-   - รันครั้งเดียวพอ ไม่ต้องรันไฟล์ใน `supabase/migrations/` ซ้ำ (เป็นไฟล์เดียวกันที่แยกไว้ใช้อัปเดต)
-3. เมนู **Authentication → Sign In / Providers → Email**: เปิด **Confirm email** ไว้ (สำคัญ ป้องกันคนสมัครด้วยอีเมลคนอื่นเพื่อรับคำเชิญ)
-4. เมนู **Project Settings → API Keys**: จดค่า **Project URL** และ **Publishable key** (ถ้าเป็น `anon` key ใช้แทนได้)
-   - ห้ามใช้ `service_role` / `secret` key ในเว็บนี้
+```bash
+cp .env.example .env
+```
 
-## ขั้นที่ 3 · ขึ้นเว็บด้วย Cloudflare
+กรอก 3 ค่าใน `.env`:
+- `DATABASE_URL` — เช่น `postgresql://postgres:รหัสผ่าน@localhost:5432/grass_cutting`
+- `AUTH_SECRET` — ใช้เซ็น session cookie สร้างด้วย `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` (**ห้ามใช้ค่าตัวอย่าง ห้ามให้ใครเห็น เปลี่ยนแล้วทุกคนที่ล็อกอินอยู่จะหลุดออก**)
+- `ANTHROPIC_API_KEY` — ไม่ใส่ก็ใช้งานได้ แต่ต้องกรอกสายทางเอง (ดูขั้นที่ 4)
 
-1. dash.cloudflare.com → เมนู **Compute (Workers) → Workers & Pages** → **Create application**
-2. เลือก **Import a repository** (หรือ Continue with GitHub) → เชื่อมบัญชี GitHub ที่มี repo `grass-cutting` → เลือก repo นี้
-3. หน้าตั้งค่า กรอกแบบนี้
-   - **Project name**: `grass-cutting` (ต้องตรงกับชื่อใน `wrangler.jsonc`)
-   - **Build command**: `npx opennextjs-cloudflare build`
-   - **Deploy command**: `npx opennextjs-cloudflare deploy`
-   - เปิด **Advanced settings → Build variables** แล้วเพิ่ม 2 ค่า
-     - `NEXT_PUBLIC_SUPABASE_URL` = Project URL
-     - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = Publishable key
-4. กด **Deploy** รอ 2–4 นาที
-5. หลัง deploy เสร็จ เข้า Worker `grass-cutting` → **Settings → Variables and Secrets** → เพิ่ม 2 ค่าเดิมซ้ำอีกครั้ง (เป็นแบบ Text) แล้วกด Deploy
-   - ต้องใส่ทั้งตอน build (ข้อ 3) และตอนรัน (ข้อ 5) เพราะ Next.js ใช้ค่าทั้งสองช่วง
-6. ลิงก์เว็บอยู่หน้า Worker เช่น `https://grass-cutting.<ชื่อบัญชี>.workers.dev`
-   - ถ้ามีโดเมนที่อยู่ใน Cloudflare แล้ว ผูกได้ที่ **Settings → Domains & Routes → Add → Custom domain**
+## ขั้นที่ 3 · รันเว็บ
 
-7. กลับไป Supabase → **Authentication → URL Configuration**
-   - **Site URL** = ลิงก์เว็บ
-   - **Redirect URLs** เพิ่ม `https://ลิงก์เว็บ/auth/callback` (ถ้าผูกโดเมนเองภายหลัง ให้เพิ่มโดเมนนั้นด้วย)
+```bash
+npm install
+npm run build
+npm run start                # http://localhost:3000 — โหมดโปรดักชัน ควรใช้ตัวนี้บนเซิร์ฟเวอร์จริง
+```
 
-หลังจากนี้ทุกครั้งที่อัปโหลดโค้ดใหม่ขึ้น GitHub เว็บจะ deploy ใหม่เองอัตโนมัติ
+รันไว้เบื้องหลังตลอดเวลาด้วย [pm2](https://pm2.keymetrics.io/) (กันไม่ให้ดับตอนปิดหน้าต่าง/restart เครื่อง):
+```bash
+npm install -g pm2
+pm2 start npm --name grass-cutting -- run start
+pm2 save
+pm2 startup                  # ทำตามคำสั่งที่ขึ้นมา เพื่อให้ pm2 สตาร์ทเองตอนเปิดเครื่อง
+```
 
-## ขั้นที่ 4 · ใส่คีย์ Claude API (ให้ Claude อ่านใบสั่งจ้าง)
+## ขั้นที่ 4 · เปิดให้เข้าถึงจากอินเทอร์เน็ตด้วย Cloudflare Tunnel
+
+ต้องมีโดเมนที่ผูกกับ Cloudflare อยู่แล้ว (เมนู DNS ขึ้นสถานะ Active)
+
+1. ติดตั้ง [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+2. ล็อกอินครั้งแรก (เปิดเบราว์เซอร์ให้เลือกบัญชี/โดเมน)
+   ```bash
+   cloudflared tunnel login
+   ```
+3. สร้าง tunnel (ทำครั้งเดียว)
+   ```bash
+   cloudflared tunnel create grass-cutting
+   ```
+   จะได้ไฟล์ credentials (`<tunnel-id>.json`) และ Tunnel ID — จดไว้
+4. สร้างไฟล์ config เช่น `%USERPROFILE%\.cloudflared\config.yml`
+   ```yaml
+   tunnel: <tunnel-id>
+   credentials-file: C:\Users\<ชื่อผู้ใช้>\.cloudflared\<tunnel-id>.json
+
+   ingress:
+     - hostname: grass-cutting.ตัวอย่างโดเมน.com
+       service: http://localhost:3000
+     - service: http_status:404
+   ```
+5. ผูกโดเมนเข้ากับ tunnel
+   ```bash
+   cloudflared tunnel route dns grass-cutting grass-cutting.ตัวอย่างโดเมน.com
+   ```
+6. รัน tunnel
+   ```bash
+   cloudflared tunnel run grass-cutting
+   ```
+   รันเป็น background service ตลอดเวลาด้วย `cloudflared service install` (ต้องรันบนเครื่อง/เซิร์ฟเวอร์เดียวกับที่รัน `npm run start`)
+
+หลังจากนี้เข้าเว็บได้ที่ `https://grass-cutting.ตัวอย่างโดเมน.com` โดยไม่ต้องเปิดพอร์ต/ตั้ง port forwarding ที่ router เอง
+
+## ขั้นที่ 5 · ใส่คีย์ Claude API (ให้ Claude อ่านใบสั่งจ้าง)
 
 ไม่ใส่ก็ใช้งานได้ แต่ต้องกรอกสายทางเอง
 - console.anthropic.com → **Settings → API Keys → Create Key** → คัดลอกคีย์ (ขึ้นต้น `sk-ant-`) และเติมเครดิตที่ **Billing**
-- Cloudflare → Worker `grass-cutting` → **Settings → Variables and Secrets → + Add**
-  - Type เลือก **Secret** · Name `ANTHROPIC_API_KEY` · Value วางคีย์ → **Deploy**
-- ห้ามใส่คีย์นี้ใน Build variables และห้ามส่งคีย์ในแชต
+- วางค่าในช่อง `ANTHROPIC_API_KEY` ของไฟล์ `.env` บนเครื่อง/เซิร์ฟเวอร์ที่รันเว็บ แล้ว restart (`pm2 restart grass-cutting`)
+- ห้ามส่งคีย์นี้ในแชตหรือ commit ขึ้น git (`.env` อยู่ใน `.gitignore` แล้ว)
 - ค่าใช้จ่ายโดยประมาณ 1–3 บาทต่อการอ่านใบสั่งจ้าง 1 ใบ
 
-## ขั้นที่ 5 · เริ่มใช้
+## ขั้นที่ 6 · เริ่มใช้
 
-1. เปิดลิงก์เว็บ → **สมัครใช้งาน** → กดลิงก์ยืนยันในอีเมล (คนแรกที่สร้างบริษัทเป็น**เจ้าของ**)
+1. เปิดลิงก์เว็บ → **สมัครใช้งาน** (ล็อกอินเข้าทันทีหลังสมัคร ไม่ต้องยืนยันอีเมล — คนแรกที่สร้างบริษัทเป็น**เจ้าของ**)
 2. สร้างบริษัท → กรอกหัวกระดาษ เลขผู้เสียภาษี บัญชีธนาคาร ผู้ลงนาม อัปโหลดโลโก้
 3. แท็บ **แขวงและหมวด** → กด **ใช้ตัวอย่าง ขทช.ชลบุรี** หรือเพิ่มเอง
 4. แท็บ **สมาชิก** → เชิญอีเมลพร้อมติ๊กบทบาท แล้วส่งลิงก์เว็บให้เขาสมัครด้วยอีเมลนั้น
 5. เมนู **งวดงาน** → **+ สร้างงวดที่ 1** → แนบ PDF ใบสั่งจ้าง → ตรวจ → บันทึก
-
-> Supabase ฟรีส่งอีเมลยืนยันได้ประมาณ 2–4 ฉบับต่อชั่วโมง ถ้ามีคนสมัครพร้อมกันหลายคน ตั้ง SMTP ของตัวเองที่ Authentication → Emails → SMTP Settings
 
 ---
 
@@ -84,7 +116,7 @@
 - **ขอบเขตงาน**: หัวหน้าชุด/ดูอย่างเดียว จำกัดให้เห็นเฉพาะบางแขวงหรือบางหมวดได้ (ไม่ติ๊ก = เห็นทั้งหมด)
 - หัวหน้าชุดบันทึกรายวันได้แต่ไม่เห็นค่าแรง ระบบใส่ค่าแรงตามรายชื่อลูกจ้างให้เอง คนที่เพิ่มเฉพาะวันนั้นใช้ค่าแรงตั้งต้น ฝ่ายบัญชีแก้ทีหลังได้ · สายที่อยู่นอกขอบเขตของหัวหน้าชุดคนนั้นในวันเดียวกันจะไม่หาย
 - ลบบันทึกรายวันได้เฉพาะบัญชี/เจ้าของ
-- สิทธิ์ล็อกที่ฐานข้อมูลด้วย (Row Level Security + view ที่ตัดคอลัมน์เงินออก) ไม่ใช่แค่ซ่อนปุ่ม
+- สิทธิ์ตรวจที่ชั้นเซิร์ฟเวอร์ (TypeScript, `src/lib/data/perm-db.ts`) ทุกครั้งที่อ่าน/เขียนข้อมูล ไม่ใช่แค่ซ่อนปุ่มฝั่งหน้าเว็บ — ฟิลด์ที่ไม่มีสิทธิ์เห็น (เช่น ค่าแรง/ราคา) ถูกตัดออกก่อนส่งให้หน้าเว็บเสมอ
 - ข้อจำกัด: บันทึกรายวันยังเป็น 1 ใบต่อบริษัทต่อวัน ถ้ามีหลายชุดทำงานวันเดียวกัน รายชื่อคนมาจะรวมอยู่ใบเดียว
 
 ---
@@ -109,16 +141,17 @@
 ## สำหรับนักพัฒนา (รันในเครื่อง)
 
 ```bash
-cp .env.example .env.local   # ใส่ค่า Supabase
+cp .env.example .env         # ใส่ DATABASE_URL, AUTH_SECRET, ANTHROPIC_API_KEY
 npm install
 npm run dev                  # http://localhost:3000
-npm run preview              # ลองแบบเดียวกับบน Cloudflare (ใส่ค่าใน .dev.vars ด้วย)
 ```
 
 โครงสร้าง
-- `supabase/setup_all.sql` ติดตั้งฐานข้อมูลใหม่ครั้งเดียว · `supabase/migrations/` ไฟล์แยกตามรุ่น (ใช้อัปเดตฐานข้อมูลเดิม)
-- ตาราง สิทธิ์ ที่เก็บไฟล์ (ไฟล์รูปอยู่ใต้ `company-files/<company_id>/...`)
-- `src/proxy.ts` ต่ออายุ session และกันหน้าที่ต้องล็อกอิน
+- `scripts/local_postgres_schema.sql` ติดตั้งฐานข้อมูลใหม่ครั้งเดียว (ตาราง + ฟังก์ชัน/ทริกเกอร์ที่ไม่ขึ้นกับ "ใครเรียก" เช่น `next_doc_no`, `save_order`)
+- `src/lib/db/sql.ts` — SQL client ตัวเดียว (`postgres` / porsager) ที่ทุกไฟล์เรียกใช้
+- `src/lib/auth/` — auth เขียนเอง: `password.ts` (bcrypt), `session.ts`/`jwt.ts` (เซ็น/ตรวจ JWT เก็บใน httpOnly cookie `gc_session`), `proxy.ts` (ต่ออายุ session ใน `src/proxy.ts` โดยตรวจแค่ JWT ไม่ query ฐานข้อมูล)
+- `src/lib/data/` — ฟังก์ชันที่ต้องรู้ว่า "ใครเรียก" (`createCompany`, `saveDaily`, `setRouteStatus`, …) รับ `userId` ตรงๆเป็น parameter + `perm-db.ts` (ตรวจ/กรองสิทธิ์)
 - `src/lib/context.ts` ผู้ใช้ปัจจุบัน + บริษัทที่เลือก (คุกกี้ `gc_company`)
+- ไฟล์แนบ (รูป/โลโก้/PO) เก็บใต้ `storage/company-files/<company_id>/...` บนดิสก์เครื่องที่รันเว็บ (ไม่ sync ไปที่อื่น) — อ่านผ่าน `src/app/api/files/[...path]/route.ts`, อัปโหลดผ่าน `src/app/api/files/upload/route.ts` ทั้งสองตรวจสิทธิ์ก่อนเสมอ
 - `src/app/(app)/settings/*` หน้าตั้งค่า
-
+- `supabase/` เป็นไฟล์เก่าจากยุคที่ยังใช้ Supabase (เก็บไว้อ้างอิงโครงสร้างตารางเท่านั้น ไม่ได้ใช้รันจริงแล้ว ของจริงอยู่ที่ `scripts/local_postgres_schema.sql`)
