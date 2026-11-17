@@ -2,47 +2,50 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCompany } from "@/lib/context";
-import { getSession } from "@/lib/auth/session";
 import { sql } from "@/lib/db/sql";
-import { saveDaily as saveDailyDb } from "@/lib/data/daily";
+import { addCrew as addCrewDb, saveDaily as saveDailyDb } from "@/lib/data/daily";
 import { num } from "@/lib/calc";
 
 type R = { error?: string };
-const isDate = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
-const isUuid = (s: unknown) => typeof s === "string" && /^[0-9a-f-]{36}$/i.test(s);
+const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+const isUuid = (s: unknown): s is string => typeof s === "string" && /^[0-9a-f-]{36}$/i.test(s);
+const money = (v: unknown) => Math.round(num(v) * 100) / 100;
+const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export type DayInput = {
   date: string;
-  work: { r: string; km: number | string | null }[];
-  crew: { id?: string; name: string; wage: number | string; ot: number | string; on: boolean }[];
+  work: { r: string; km: number | string | null; fin?: boolean }[];
+  crew: { id?: string; name: string; wage?: number | string | null; ot?: number | string | null; on: boolean; half?: boolean }[];
   fuel: number | string;
+  fuel_car: number | string;
+  water: number | string;
   other: number | string;
   note: string;
 };
 
+/** บันทึกรายวัน (บันทึกอัตโนมัติจากหน้าบันทึกรายวัน) */
 export async function saveDaily(x: DayInput): Promise<R> {
-  const { company, perm } = await requireCompany();
-  const session = await getSession();
-  if (!perm.daily || !session) return { error: "ไม่มีสิทธิ์บันทึกรายวัน" };
+  const { userId, company, perm } = await requireCompany();
+  if (!perm.daily) return { error: "ไม่มีสิทธิ์บันทึกรายวัน" };
   if (!isDate(x.date)) return { error: "วันที่ไม่ถูกต้อง" };
   const crew = (x.crew || [])
-    .map((c) => ({ id: String(c.id || ""), name: String(c.name || "").trim(), wage: num(c.wage), ot: num(c.ot), on: Boolean(c.on) }))
+    .map((c) => ({ id: String(c.id || ""), name: String(c.name || "").trim(), wage: num(c.wage), ot: c.on ? num(c.ot) : 0, on: Boolean(c.on), half: Boolean(c.on && c.half) }))
     .filter((c) => c.name);
   const seen = new Set<string>();
-  const work = [];
+  const work: { r: string; km: number | null; fin?: boolean }[] = [];
   for (const w of x.work || []) {
     if (!isUuid(w.r) || seen.has(w.r)) continue;
     seen.add(w.r);
     const t = String(w.km ?? "").replace(/,/g, "").trim();
     const km = t === "" ? null : Number(t);
     if (km !== null && (!Number.isFinite(km) || km < 0)) return { error: "ระยะที่ตัดได้ต้องเป็นตัวเลข กม." };
-    work.push({ r: w.r, km });
+    work.push(w.fin ? { r: w.r, km, fin: true } : { r: w.r, km });
   }
-  // บันทึกผ่านฟังก์ชันนี้เท่านั้น: คนที่ไม่ใช่บัญชีแก้ค่าแรงไม่ได้ และงานของสายนอกขอบเขตจะไม่หาย
+  // คนที่ไม่ใช่บัญชีแก้ค่าแรงไม่ได้, คนที่จ่ายแล้วแก้ไม่ได้, งานของสายนอกขอบเขตไม่หาย (ดู lib/data/daily.ts)
   try {
-    await saveDailyDb(session.userId, company.id, x.date, work, crew, num(x.fuel), num(x.other), String(x.note || "").slice(0, 500));
+    await saveDailyDb(userId, company.id, x.date, work, crew, money(x.fuel), money(x.other), String(x.note || "").slice(0, 500), money(x.water), money(x.fuel_car));
   } catch (e) {
-    return { error: e instanceof Error ? e.message : String(e) };
+    return { error: msg(e) };
   }
   revalidatePath("/", "layout");
   return {};
@@ -51,29 +54,93 @@ export async function saveDaily(x: DayInput): Promise<R> {
 export async function deleteDaily(date: string): Promise<R> {
   const { company, perm } = await requireCompany();
   if (!perm.wages) return { error: "ลบบันทึกรายวันได้เฉพาะฝ่ายบัญชีหรือเจ้าของ" };
+  if (!isDate(date)) return { error: "วันที่ไม่ถูกต้อง" };
   await sql`delete from daily_logs where company_id = ${company.id} and log_date = ${date}`;
-  revalidatePath("/daily");
+  revalidatePath("/", "layout");
   return {};
 }
 
-/** บันทึกรายชื่อลูกจ้างประจำชุด (คนที่เอาออกจะถูกซ่อน ไม่ลบประวัติรายวัน) */
-export async function saveCrew(list: { id?: string; name: string; wage: number | string }[]): Promise<R> {
+/** เพิ่มคนงานใหม่จากหน้าบันทึกรายวัน (หัวหน้าชุดเพิ่มได้ ค่าแรงใช้ค่ากลาง บัญชีแก้ทีหลัง) */
+export async function addCrew(name: string, wage?: number | string): Promise<R & { id?: string; wage?: number | null }> {
+  const { userId, company, perm } = await requireCompany();
+  if (!perm.daily) return { error: "ไม่มีสิทธิ์เพิ่มคนงาน" };
+  const n = String(name || "").trim();
+  if (!n) return { error: "ใส่ชื่อคนงาน" };
+  let id: string;
+  try {
+    id = await addCrewDb(userId, company.id, n, perm.wages && wage !== undefined && wage !== "" ? num(wage) : null);
+  } catch (e) {
+    return { error: msg(e) };
+  }
+  // ค่าแรงเห็นเฉพาะบัญชี (แบบ crew_v เดิม)
+  const [c] = perm.wages ? await sql<{ wage: number }[]>`select wage from crew where id = ${id}` : [];
+  revalidatePath("/", "layout");
+  return { id, wage: c?.wage == null ? null : Number(c.wage) };
+}
+
+/** เบิกล่วงหน้า */
+export async function saveAdvance(a: { crew_id: string; date: string; amt: number | string; note?: string }): Promise<R> {
+  const { userId, company, perm } = await requireCompany();
+  if (!perm.daily) return { error: "ไม่มีสิทธิ์บันทึกการเบิก" };
+  if (!isUuid(a.crew_id)) return { error: "เลือกคนงาน" };
+  if (!isDate(a.date)) return { error: "ใส่วันที่เบิก" };
+  const amt = money(a.amt);
+  if (!(amt > 0)) return { error: "ใส่จำนวนเงินที่เบิก" };
+  const [k] = await sql`select 1 from crew where id = ${a.crew_id} and company_id = ${company.id}`;
+  if (!k) return { error: "ไม่พบคนงาน" };
+  await sql`
+    insert into crew_advances (company_id, crew_id, adv_date, amt, note, created_by)
+    values (${company.id}, ${a.crew_id}, ${a.date}, ${amt}, ${String(a.note || "").trim().slice(0, 200)}, ${userId})
+  `;
+  revalidatePath("/", "layout");
+  return {};
+}
+export async function deleteAdvance(id: string): Promise<R> {
   const { company, perm } = await requireCompany();
-  if (!perm.wages) return { error: "เฉพาะฝ่ายบัญชีหรือเจ้าของที่แก้รายชื่อและค่าแรงได้" };
-  const keep = list.map((c, i) => ({ id: isUuid(c.id) ? c.id : undefined, name: String(c.name || "").trim(), wage: num(c.wage), sort: i })).filter((c) => c.name);
-  const cur = await sql<{ id: string }[]>`select id from crew where company_id = ${company.id} and active = true`;
-  const ids = new Set(keep.map((c) => c.id).filter(Boolean));
-  const gone = cur.filter((c) => !ids.has(c.id)).map((c) => c.id);
-  if (gone.length) {
-    await sql`update crew set active = false where id in ${sql(gone)} and company_id = ${company.id}`;
+  if (!perm.daily) return { error: "ไม่มีสิทธิ์ลบการเบิก" };
+  if (!isUuid(id)) return { error: "ไม่พบรายการ" };
+  await sql`delete from crew_advances where id = ${id} and company_id = ${company.id}`;
+  revalidatePath("/", "layout");
+  return {};
+}
+
+export type FuelIn = {
+  id?: string; date: string; kind: "mower" | "car"; liters: number | string; price: number | string; amt: number | string;
+  crew_id?: string; by_name?: string; car_id?: string; car_plate?: string; odo?: number | string; note?: string; pic_path?: string | null;
+};
+/** เบิกน้ำมัน */
+export async function saveFuel(f: FuelIn): Promise<R> {
+  const { userId, company, perm } = await requireCompany();
+  if (!perm.fuel) return { error: "ไม่มีสิทธิ์บันทึกน้ำมัน" };
+  if (!isDate(f.date)) return { error: "ใส่วันที่เบิก" };
+  const liters = money(f.liters), price = money(f.price), amt = money(f.amt) || money(liters * price);
+  if (!(liters > 0)) return { error: "ใส่จำนวนลิตร" };
+  if (!(amt > 0)) return { error: "ใส่ราคาต่อลิตร หรือยอดเงิน" };
+  const car = f.kind === "car";
+  const row = {
+    company_id: company.id, log_date: f.date, kind: car ? "car" : "mower", liters, price: price || money(amt / liters), amt,
+    crew_id: isUuid(f.crew_id) ? f.crew_id : null, by_name: String(f.by_name || "").slice(0, 100),
+    car_id: car && isUuid(f.car_id) ? f.car_id : null, car_plate: car ? String(f.car_plate || "").slice(0, 40) : "",
+    odo: car && num(f.odo) > 0 ? Math.round(num(f.odo)) : null, note: String(f.note || "").trim().slice(0, 200),
+    pic_path: f.pic_path && f.pic_path.startsWith(company.id + "/") ? f.pic_path : null,
+  };
+  try {
+    // คนงาน/รถต้องเป็นของบริษัทนี้
+    if (row.crew_id && !(await sql`select 1 from crew where id = ${row.crew_id} and company_id = ${company.id}`).length) row.crew_id = null;
+    if (row.car_id && !(await sql`select 1 from cars where id = ${row.car_id} and company_id = ${company.id}`).length) row.car_id = null;
+    if (isUuid(f.id)) await sql`update fuel_logs set ${sql(row)} where id = ${f.id} and company_id = ${company.id}`;
+    else await sql`insert into fuel_logs ${sql({ ...row, created_by: userId })}`;
+  } catch (e) {
+    return { error: msg(e) };
   }
-  for (const c of keep) {
-    if (c.id) {
-      await sql`update crew set name = ${c.name}, wage = ${c.wage}, sort = ${c.sort}, active = true where id = ${c.id} and company_id = ${company.id}`;
-    } else {
-      await sql`insert into crew (company_id, name, wage, sort) values (${company.id}, ${c.name}, ${c.wage}, ${c.sort})`;
-    }
-  }
-  revalidatePath("/daily");
+  revalidatePath("/", "layout");
+  return {};
+}
+export async function deleteFuel(id: string): Promise<R> {
+  const { company, perm } = await requireCompany();
+  if (!perm.fuel) return { error: "ไม่มีสิทธิ์ลบ" };
+  if (!isUuid(id)) return { error: "ไม่พบรายการ" };
+  await sql`delete from fuel_logs where id = ${id} and company_id = ${company.id}`;
+  revalidatePath("/", "layout");
   return {};
 }

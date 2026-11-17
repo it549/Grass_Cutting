@@ -1,89 +1,62 @@
 import { requireCompany } from "@/lib/context";
 import { sql } from "@/lib/db/sql";
-import { loadAgencies, loadOrders, loadPhotos, signUrls } from "@/lib/orders";
-import { routeState } from "@/lib/progress";
-import { addDays, todayBkk } from "@/lib/calc";
-import { coHead } from "@/lib/docs";
-import { DailyEditor, type DayRec, type RouteOpt } from "@/components/DailyEditor";
-import type { CrewDay } from "@/lib/print/pages";
-
-type WorkItem = { r: string; km: number | null };
-type CrewItem = CrewDay;
+import { crewPaysV, crewV, dailyV } from "@/lib/data/views";
+import { loadWorld } from "@/lib/world";
+import { todayBkk } from "@/lib/calc";
+import { type Advance, type Car, type CrewDay, type CrewRec, type DayRec, type Fuel, weekOf } from "@/lib/model";
+import { DailyView } from "./DailyView";
 
 export const metadata = { title: "บันทึกรายวัน · งานตัดหญ้า" };
 
 const isDate = (s?: string) => Boolean(s && /^\d{4}-\d{2}-\d{2}$/.test(s));
-const weekOf = (s: string) => { const k = (new Date(s + "T00:00:00Z").getUTCDay() + 6) % 7; const a = addDays(s, -k); return [...Array(7)].map((_, i) => addDays(a, i)); };
+type Raw = { log_date: string; work: DayRec["work"] | null; crew: CrewDay[] | null; fuel: number | null; fuel_car: number | null; water: number | null; other: number | null; note: string | null };
+const toRec = (l: Raw): DayRec => ({
+  date: l.log_date, work: l.work ?? [], crew: (l.crew ?? []).map((c) => ({ ...c, wage: c.wage == null ? null : Number(c.wage), ot: c.ot == null ? null : Number(c.ot) })),
+  fuel: Number(l.fuel ?? 0), fuel_car: Number(l.fuel_car ?? 0), water: Number(l.water ?? 0), other: Number(l.other ?? 0), note: l.note ?? "",
+});
 
-export default async function DailyPage({ searchParams }: { searchParams: Promise<{ d?: string; m?: string }> }) {
+export default async function DailyPage({ searchParams }: { searchParams: Promise<{ d?: string; add?: string }> }) {
   const sp = await searchParams;
-  const { company, perm } = await requireCompany();
-  const day = isDate(sp.d) ? sp.d! : todayBkk();
-  const month = sp.m && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : day.slice(0, 7);
-  const week = weekOf(day);
-  const mStart = month + "-01";
-  const mEnd = addDays(addDays(mStart, 32).slice(0, 7) + "-01", -1);
-  const from = [mStart, week[0]].sort()[0], to = [mEnd, week[6]].sort()[1];
-  const [logsRaw, kmLogsRaw, crewRaw, agencies, orders, urls] = await Promise.all([
-    sql<{ log_date: string; order_id: string | null; work: WorkItem[]; crew: CrewItem[]; fuel: number; other: number; note: string }[]>`
-      select log_date, order_id, work, crew, fuel, other, note from daily_logs
-      where company_id = ${company.id} and log_date >= ${from} and log_date <= ${to}
-    `,
-    sql<{ log_date: string; work: WorkItem[] }[]>`
-      select log_date, work from daily_logs where company_id = ${company.id} and route_ids <> '{}'
-    `,
-    sql<{ id: string; name: string; wage: number }[]>`
-      select id, name, wage from crew where company_id = ${company.id} and active = true order by sort, created_at
-    `,
-    loadAgencies(),
-    loadOrders(),
-    signUrls([company.logo_path ?? ""]),
+  const { company, perm, who } = await requireCompany();
+  const cid = company.id;
+  const today = todayBkk();
+  const day = isDate(sp.d) ? sp.d! : today;
+  const wk = weekOf(day);
+  const [W, weekRows, prevRows, crew, pays, adv, fuel, cars] = await Promise.all([
+    loadWorld(),
+    dailyV(who, sql`and log_date >= ${wk[0]} and log_date <= ${wk[6]}`),
+    dailyV(who, sql`and log_date < ${day}`, sql`order by log_date desc limit 14`),
+    crewV(who),
+    crewPaysV(who, sql`and week_start = ${wk[0]}`),
+    perm.daily
+      ? sql<Advance[]>`select id, crew_id, adv_date, amt, note from crew_advances where company_id = ${cid} and adv_date = ${day} order by created_at`
+      : Promise.resolve([] as Advance[]),
+    perm.fuel
+      ? sql<Fuel[]>`
+          select id, log_date, kind, liters, price, amt, crew_id, by_name, car_id, car_plate, odo, note, pic_path
+          from fuel_logs where company_id = ${cid} and log_date >= ${wk[0]} and log_date <= ${wk[6]} order by created_at
+        `
+      : Promise.resolve([] as Fuel[]),
+    sql<Car[]>`select id, plate, name, note, active, sort from cars where company_id = ${cid} order by sort, created_at`,
   ]);
-  const multi = agencies.length > 1;
-  const photos = await loadPhotos({ orderIds: orders.map((o) => o.id) });
-  // งานของสายที่อยู่นอกขอบเขตของผู้ดูจะไม่แสดง (ค่าแรง/ค่าน้ำมันก็เห็นตามสิทธิ์)
-  const inScopeRouteIds = new Set(orders.flatMap((o) => o.routes.map((r) => r.id)));
-  const logs = logsRaw.map((l) => ({
-    ...l,
-    work: (l.work ?? []).filter((w) => inScopeRouteIds.has(w.r)),
-    crew: perm.wages ? l.crew ?? [] : (l.crew ?? []).map((c) => ({ ...c, wage: 0, ot: 0 })),
-    fuel: perm.fuel ? l.fuel : 0,
-    other: perm.fuel ? l.other : 0,
-  }));
-  const kmLogs = kmLogsRaw.map((l) => ({ ...l, work: (l.work ?? []).filter((w) => inScopeRouteIds.has(w.r)) }));
-  const crew = crewRaw.map((c) => ({ ...c, wage: perm.wages ? Number(c.wage) : 0 }));
-  // ระยะที่ตัดได้สะสมต่อสาย (ไม่นับวันที่กำลังแก้ หน้าจอจะบวกค่าของวันนี้เอง)
-  const kmDone: Record<string, number> = {};
-  for (const l of kmLogs) {
-    if (l.log_date === day) continue;
-    for (const w of l.work ?? []) if (w.km != null) kmDone[w.r] = (kmDone[w.r] ?? 0) + Number(w.km);
-  }
-  const routes: RouteOpt[] = orders.flatMap((o) => {
-    const A = agencies.find((a) => a.id === o.agency_id);
-    return o.routes.map((r) => ({
-      id: r.id, code: r.code, descr: r.descr, order_id: o.id, round: o.round_no, hmd: o.hmd, area: r.area,
-      ag: o.agency_id, agName: multi && A ? A.short_name || A.name : "",
-      len: r.length_km, kmDone: kmDone[r.id] ?? 0,
-      done: routeState(r, photos.filter((p) => p.route_id === r.id)).s === 2,
-    }));
-  });
-  const recs: DayRec[] = (logs ?? []).map((l) => ({
-    date: l.log_date, order_id: l.order_id ?? "", work: (l.work ?? []).map((w: { r: string; km: number | null }) => ({ r: w.r, km: w.km == null ? "" : String(w.km) })),
-    crew: l.crew ?? [], fuel: Number(l.fuel ?? 0), other: Number(l.other ?? 0), note: l.note ?? "",
-  }));
+  const week = (weekRows as Raw[]).map(toRec);
+  const prev = (prevRows as Raw[]).map(toRec).find((r) => r.crew.some((c) => c.on));
+  const add = String(sp.add ?? "").split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x));
   return (
-    <DailyEditor
-      key={day}
+    <DailyView
+      key={day + "|" + add.join(",")}
+      W={W}
       day={day}
-      month={month}
+      today={today}
       week={week}
-      today={todayBkk()}
-      recs={recs}
-      crew={(crew ?? []).map((c) => ({ id: c.id, name: c.name, wage: Number(c.wage ?? 0) }))}
-      routes={routes}
+      prev={prev ?? null}
+      crew={(crew as CrewRec[]).map((c) => ({ ...c, wage: c.wage == null ? null : Number(c.wage) }))}
+      paid={pays.map((p) => p.crew_id)}
+      adv={adv.map((a) => ({ ...a, amt: Number(a.amt) }))}
+      fuel={fuel.map((f) => ({ ...f, liters: Number(f.liters), price: Number(f.price), amt: Number(f.amt), odo: f.odo == null ? null : Number(f.odo) }))}
+      cars={[...cars]}
+      add={add}
       can={{ edit: perm.daily, wages: perm.wages, fuel: perm.fuel }}
-      company={{ head: coHead(company), signer: company.signer_name ?? "", name: company.name }}
-      urls={urls}
     />
   );
 }

@@ -72,8 +72,10 @@ export async function setMember(formData: FormData) {
 }
 
 export async function removeMember(formData: FormData) {
-  const { company, userId } = await requireCompany();
+  const { company, userId, perm } = await requireCompany();
   const uid = String(formData.get("user_id"));
+  // ออกจากบริษัทเองได้ · นำคนอื่นออกได้เฉพาะเจ้าของ (แบบ RLS เดิม)
+  if (uid !== userId && !perm.owner) done(P, "คุณไม่มีสิทธิ์นำคนนี้ออก", true);
   const rows = await sql<{ user_id: string }[]>`
     delete from company_members where company_id = ${company.id} and user_id = ${uid} returning user_id
   `;

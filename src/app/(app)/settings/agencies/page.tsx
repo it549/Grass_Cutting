@@ -1,5 +1,6 @@
 import { requireCompany } from "@/lib/context";
 import { sql } from "@/lib/db/sql";
+import { inScopeFor } from "@/lib/data/perm-db";
 import type { Agency } from "@/lib/types";
 import { Flash } from "@/components/Flash";
 import { ConfirmButton } from "@/components/ConfirmButton";
@@ -21,15 +22,17 @@ function Fields({ a, ro }: { a?: Agency; ro: boolean }) {
         <textarea name="hmds" rows={3} defaultValue={(a?.hmds ?? []).join("\n")} disabled={ro} placeholder={"ชลบุรี\nบ่อทอง\nบางละมุง"} />
         <span className="small muted">ใส่แค่ชื่อหมวด ระบบเติม &quot;หมวดบำรุงทางหลวงชนบท&quot; ให้เอง</span>
       </label>
+      <label className="chk wide"><input type="checkbox" name="photo_lr" defaultChecked={Boolean(a?.photo_lr)} disabled={ro} /> ต้องมีแบบสำรวจรูปซ้าย/ขวาทาง ทุก 250 ม. ครบด้วย จึงนับว่ารูปครบ (นอกจากรูปก่อน/หลัง ทุก 500 ม.)</label>
     </div>
   );
 }
 
 export default async function AgenciesPage({ searchParams }: { searchParams: Promise<{ msg?: string; err?: string }> }) {
   const sp = await searchParams;
-  const { company, perm } = await requireCompany();
+  const { company, perm, roles, scope } = await requireCompany();
   const ro = !perm.orders;
-  const list = await sql<Agency[]>`select * from agencies where company_id = ${company.id} order by sort, created_at`;
+  const rows = await sql<Agency[]>`select * from agencies where company_id = ${company.id} order by sort, created_at`;
+  const list = rows.filter((a) => inScopeFor(roles, scope, a.id, null));
 
   return (
     <>

@@ -377,3 +377,268 @@ begin
      or not exists (select 1 from public.routes r where r.id = (x.v ->> 'id')::uuid and r.order_id = oid);
   return oid;
 end $$;
+
+-- ========================================================================
+-- V.2 (พอร์ตจาก supabase/migrations 0006–0008 ของ grass-cutting V.2) — รันซ้ำได้ ข้อมูลเดิมไม่หาย
+-- ตัด RLS/policy/view ที่อ้าง auth.uid() ออก: สิทธิ์อ่าน/เขียนตรวจในโค้ดแทน (src/lib/data/*)
+-- ========================================================================
+
+-- ---------- 0006 ทะเบียนสายทาง ----------
+create table if not exists public.roads (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  agency_id uuid not null references public.agencies (id) on delete cascade,
+  hmd text not null default '',
+  code text not null check (length(trim(code)) > 0),
+  name text not null default '',
+  amp text not null default '',
+  len_km numeric(10, 3) check (len_km is null or len_km >= 0),
+  map_url text check (map_url is null or map_url = '' or map_url ~* '^https?://'),
+  note text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+-- เลขสายซ้ำในแขวงเดียวกันไม่ได้ (ไม่สนช่องว่าง จุด ขีด ตัวพิมพ์)
+create unique index if not exists roads_code_uq on public.roads (company_id, agency_id, lower(regexp_replace(code, '[\s.\-]', '', 'g')));
+create index if not exists roads_agency_idx on public.roads (agency_id, hmd);
+drop trigger if exists roads_touch on public.roads;
+create trigger roads_touch before update on public.roads for each row execute function public.touch_updated_at();
+
+create or replace function public.check_road_company()
+returns trigger language plpgsql as $$
+begin
+  if not exists (select 1 from public.agencies a where a.id = new.agency_id and a.company_id = new.company_id) then
+    raise exception 'แขวงนี้ไม่ใช่ของบริษัทนี้';
+  end if;
+  new.hmd := trim(coalesce(new.hmd, ''));
+  new.code := trim(new.code);
+  return new;
+end $$;
+drop trigger if exists roads_same_company on public.roads;
+create trigger roads_same_company before insert or update on public.roads for each row execute function public.check_road_company();
+
+-- ปีงบประมาณไทย: ต.ค.–ก.ย. เช่น 1 ต.ค. 2569 = ปีงบ 2570
+create or replace function public.fiscal_year(d date)
+returns int language sql immutable as $$
+  select (extract(year from d)::int + 543 + case when extract(month from d) >= 10 then 1 else 0 end);
+$$;
+
+alter table public.orders add column if not exists fy int;
+alter table public.orders add column if not exists start_date date;
+update public.orders set fy = public.fiscal_year(coalesce(po_date, created_at::date)) where fy is null;
+
+create or replace function public.orders_default_fy()
+returns trigger language plpgsql as $$
+begin
+  if new.fy is null then new.fy := public.fiscal_year(coalesce(new.po_date, current_date)); end if;
+  return new;
+end $$;
+drop trigger if exists orders_fy on public.orders;
+create trigger orders_fy before insert or update on public.orders for each row execute function public.orders_default_fy();
+alter table public.orders alter column fy set not null;
+alter table public.orders drop constraint if exists orders_fy_ok;
+alter table public.orders add constraint orders_fy_ok check (fy between 2500 and 2700);
+
+-- งวดเดียวกันคือ แขวง + ปีงบ + งวดที่ (หมวดละ 1 ใบ)
+alter table public.orders drop constraint if exists orders_company_id_agency_id_round_no_hmd_key;
+drop index if exists public.orders_round_uq;
+create unique index orders_round_uq on public.orders (company_id, agency_id, fy, round_no, hmd);
+
+-- สายในงวด ผูกกับทะเบียน · in_po = false คือสายที่อยู่ในแผนแต่ไม่อยู่ในใบสั่งจ้าง
+alter table public.routes add column if not exists road_id uuid references public.roads (id) on delete set null;
+alter table public.routes add column if not exists in_po boolean not null default true;
+create index if not exists routes_road_idx on public.routes (road_id);
+
+create or replace function public.check_route_road()
+returns trigger language plpgsql as $$
+begin
+  if new.road_id is not null and not exists (
+    select 1 from public.roads g join public.orders o on o.id = new.order_id
+    where g.id = new.road_id and g.company_id = new.company_id and g.agency_id = o.agency_id) then
+    raise exception 'สายทางในทะเบียนนี้ไม่ใช่ของแขวงเดียวกับใบสั่งจ้าง';
+  end if;
+  return new;
+end $$;
+drop trigger if exists routes_road_ok on public.routes;
+create trigger routes_road_ok before insert or update of road_id, order_id on public.routes for each row execute function public.check_route_road();
+
+-- ผูกสายเดิมเข้ากับทะเบียน (สร้างในทะเบียนให้ถ้ายังไม่มี)
+insert into public.roads (company_id, agency_id, hmd, code, name, len_km)
+select distinct on (o.company_id, o.agency_id, lower(regexp_replace(r.code, '[\s.\-]', '', 'g')))
+       o.company_id, o.agency_id, o.hmd, r.code, r.descr, r.length_km
+from public.routes r join public.orders o on o.id = r.order_id
+where trim(r.code) <> ''
+order by o.company_id, o.agency_id, lower(regexp_replace(r.code, '[\s.\-]', '', 'g')), o.created_at desc
+on conflict do nothing;
+update public.routes r set road_id = g.id
+from public.orders o, public.roads g
+where o.id = r.order_id and r.road_id is null and trim(r.code) <> ''
+  and g.company_id = o.company_id and g.agency_id = o.agency_id
+  and lower(regexp_replace(g.code, '[\s.\-]', '', 'g')) = lower(regexp_replace(r.code, '[\s.\-]', '', 'g'));
+
+-- บันทึกใบสั่งจ้าง/แผนของหมวด พร้อมสายทาง (รุ่น V.2: fy, start_date, road_id, in_po) — ตรวจสิทธิ์ในโค้ดก่อนเรียก
+drop function if exists public.save_order(uuid, uuid, jsonb, jsonb);
+create or replace function public.save_order(p_id uuid, p_company uuid, p_order jsonb, p_routes jsonb)
+returns uuid language plpgsql as $$
+declare
+  oid uuid := p_id;
+  rs jsonb := coalesce(p_routes, '[]'::jsonb);
+  v_fy int := nullif(p_order ->> 'fy', '')::int;
+begin
+  if oid is null then
+    insert into public.orders (company_id, agency_id, round_no, hmd, fy, start_date, po_no, po_date, proj_no, due_days, due_date, penalty, vat_incl, note, po_file_path)
+    values (p_company, (p_order ->> 'agency_id')::uuid, (p_order ->> 'round_no')::int, coalesce(p_order ->> 'hmd', ''), v_fy,
+            nullif(p_order ->> 'start_date', '')::date,
+            nullif(p_order ->> 'po_no', ''), nullif(p_order ->> 'po_date', '')::date, nullif(p_order ->> 'proj_no', ''),
+            nullif(p_order ->> 'due_days', '')::int, nullif(p_order ->> 'due_date', '')::date, nullif(p_order ->> 'penalty', ''),
+            coalesce((p_order ->> 'vat_incl')::boolean, true), nullif(p_order ->> 'note', ''), nullif(p_order ->> 'po_file_path', ''))
+    returning id into oid;
+  else
+    update public.orders set
+      agency_id = (p_order ->> 'agency_id')::uuid, round_no = (p_order ->> 'round_no')::int, hmd = coalesce(p_order ->> 'hmd', ''),
+      fy = coalesce(v_fy, fy), start_date = coalesce(nullif(p_order ->> 'start_date', '')::date, start_date),
+      po_no = nullif(p_order ->> 'po_no', ''), po_date = nullif(p_order ->> 'po_date', '')::date, proj_no = nullif(p_order ->> 'proj_no', ''),
+      due_days = nullif(p_order ->> 'due_days', '')::int, due_date = nullif(p_order ->> 'due_date', '')::date,
+      penalty = nullif(p_order ->> 'penalty', ''), vat_incl = coalesce((p_order ->> 'vat_incl')::boolean, true),
+      note = nullif(p_order ->> 'note', ''), po_file_path = coalesce(nullif(p_order ->> 'po_file_path', ''), po_file_path)
+    where id = oid and company_id = p_company;
+    if not found then raise exception 'ไม่พบใบสั่งจ้าง หรือไม่มีสิทธิ์แก้'; end if;
+
+    delete from public.routes r
+    where r.order_id = oid
+      and r.id not in (select (x ->> 'id')::uuid from jsonb_array_elements(rs) x where coalesce(x ->> 'id', '') <> '');
+
+    update public.routes r set
+      seq = (x.ord - 1)::int, code = coalesce(x.v ->> 'code', ''), descr = coalesce(x.v ->> 'descr', ''),
+      area = coalesce(nullif(x.v ->> 'area', '')::numeric, 0), rate = coalesce(nullif(x.v ->> 'rate', '')::numeric, 0),
+      road_id = nullif(x.v ->> 'road_id', '')::uuid, in_po = coalesce((x.v ->> 'in_po')::boolean, true)
+    from jsonb_array_elements(rs) with ordinality as x (v, ord)
+    where coalesce(x.v ->> 'id', '') <> '' and r.id = (x.v ->> 'id')::uuid and r.order_id = oid;
+  end if;
+
+  insert into public.routes (order_id, company_id, seq, code, descr, area, rate, road_id, in_po)
+  select oid, p_company, (x.ord - 1)::int, coalesce(x.v ->> 'code', ''), coalesce(x.v ->> 'descr', ''),
+         coalesce(nullif(x.v ->> 'area', '')::numeric, 0), coalesce(nullif(x.v ->> 'rate', '')::numeric, 0),
+         nullif(x.v ->> 'road_id', '')::uuid, coalesce((x.v ->> 'in_po')::boolean, true)
+  from jsonb_array_elements(rs) with ordinality as x (v, ord)
+  where coalesce(x.v ->> 'id', '') = ''
+     or not exists (select 1 from public.routes r where r.id = (x.v ->> 'id')::uuid and r.order_id = oid);
+  return oid;
+end $$;
+
+-- ---------- 0007 คนงาน ค่าแรง น้ำมัน รถ ----------
+alter table public.crew
+  add column if not exists nick text not null default '',
+  add column if not exists role text not null default '',
+  add column if not exists phone text not null default '',
+  add column if not exists pay_by text not null default 'cash',
+  add column if not exists pay_no text not null default '',
+  add column if not exists start_date date,
+  add column if not exists note text not null default '';
+do $$ begin
+  alter table public.crew add constraint crew_pay_by_chk check (pay_by in ('cash', 'pp', 'bank'));
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.cars (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  plate text not null check (length(trim(plate)) > 0),
+  name text not null default '',
+  fuel_type text not null default '',
+  note text not null default '',
+  active boolean not null default true,
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.cars add column if not exists fuel_type text not null default '';
+create index if not exists cars_company_idx on public.cars (company_id, sort);
+
+create table if not exists public.fuel_logs (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  log_date date not null,
+  kind text not null check (kind in ('mower', 'car')),
+  liters numeric(10, 2) not null check (liters > 0),
+  price numeric(10, 2) not null default 0 check (price >= 0),
+  amt numeric(12, 2) not null check (amt >= 0),
+  crew_id uuid references public.crew (id) on delete set null,
+  by_name text not null default '',
+  car_id uuid references public.cars (id) on delete set null,
+  car_plate text not null default '',
+  odo numeric(12, 0),
+  note text not null default '',
+  pic_path text,
+  created_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists fuel_logs_company_idx on public.fuel_logs (company_id, log_date);
+drop trigger if exists fuel_logs_touch on public.fuel_logs;
+create trigger fuel_logs_touch before update on public.fuel_logs for each row execute function public.touch_updated_at();
+
+create table if not exists public.crew_advances (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  crew_id uuid not null references public.crew (id) on delete cascade,
+  adv_date date not null,
+  amt numeric(12, 2) not null check (amt > 0),
+  note text not null default '',
+  created_by uuid,
+  created_at timestamptz not null default now()
+);
+create index if not exists crew_advances_company_idx on public.crew_advances (company_id, adv_date);
+
+-- จ่ายค่าแรงรายสัปดาห์ (จันทร์ของสัปดาห์) · จ่ายแล้ววันของคนนั้นในสัปดาห์จะล็อก
+create table if not exists public.crew_pays (
+  company_id uuid not null references public.companies (id) on delete cascade,
+  week_start date not null check (extract(isodow from week_start) = 1),
+  crew_id uuid not null references public.crew (id) on delete cascade,
+  name text not null default '',
+  pay_date date not null,
+  method text not null default 'cash' check (method in ('cash', 'pp', 'bank')),
+  days numeric(6, 1) not null default 0,
+  gross numeric(12, 2) not null default 0,
+  ot numeric(12, 2) not null default 0,
+  ded numeric(12, 2) not null default 0,
+  net numeric(12, 2) not null default 0,
+  created_by uuid,
+  created_at timestamptz not null default now(),
+  primary key (company_id, week_start, crew_id)
+);
+
+alter table public.daily_logs
+  add column if not exists water numeric(12, 2) not null default 0,
+  add column if not exists fuel_car numeric(12, 2) not null default 0;
+
+-- ---------- 0008 รูปรายงานตาม กม. (ช่องรูป) ----------
+-- ชนิดรูป: b/a ก่อน/หลัง · L/R ซ้าย/ขวาทาง · t อยู่ในถาด
+alter table public.route_photos drop constraint if exists route_photos_kind_check;
+alter table public.route_photos add constraint route_photos_kind_check check (kind in ('b', 'a', 'L', 'R', 't'));
+alter table public.route_photos add column if not exists slot text;
+alter table public.route_photos drop constraint if exists route_photos_slot_check;
+alter table public.route_photos add constraint route_photos_slot_check check (slot is null or slot ~ '^[baLR]\|[0-9]+$');
+alter table public.route_photos add column if not exists sig text;
+create unique index if not exists route_photos_slot_uq on public.route_photos (route_id, slot) where slot is not null;
+
+alter table public.agencies add column if not exists photo_lr boolean not null default false;
+
+-- วางรูปลงช่อง (หลายช่องพร้อมกัน): p_map = {"b|500": "<id รูป>" หรือ null = เอาออกกลับถาด} — ตรวจสิทธิ์ในโค้ดก่อนเรียก
+create or replace function public.place_photos(p_route uuid, p_map jsonb)
+returns void language plpgsql as $$
+declare
+  k text; v text; ids uuid[];
+begin
+  if jsonb_typeof(p_map) <> 'object' then raise exception 'ข้อมูลช่องรูปไม่ถูกต้อง'; end if;
+  if exists (select 1 from jsonb_each_text(p_map) e where e.key !~ '^[baLR]\|[0-9]+$') then
+    raise exception 'ช่องรูปไม่ถูกต้อง';
+  end if;
+  select coalesce(array_agg(e.value::uuid), '{}') into ids from jsonb_each_text(p_map) e where e.value is not null;
+  update public.route_photos p set slot = null, kind = 't'
+   where p.route_id = p_route
+     and (p.slot in (select e.key from jsonb_each_text(p_map) e) or p.id = any (ids));
+  for k, v in select e.key, e.value from jsonb_each_text(p_map) e where e.value is not null loop
+    update public.route_photos p set slot = k, kind = split_part(k, '|', 1)
+     where p.id = v::uuid and p.route_id = p_route;
+    if not found then raise exception 'ไม่พบรูป หรือไม่มีสิทธิ์แก้รูปของสายนี้'; end if;
+  end loop;
+end $$;
