@@ -47,6 +47,8 @@ export type DocData = {
   signTitle?: string;
   contact?: string;
   noContact?: boolean;
+  /** ไม่ย่อหนังสือส่งมอบให้อยู่หน้าเดียว */
+  noFit?: boolean;
   voidReason?: string;
   replaces?: string;
 };
@@ -73,10 +75,12 @@ export const coHead = (c: Company): Head => ({
 });
 
 export type RouteLite = { code: string; descr: string; area: number; rate: number };
+/** ชื่อสายแบบ "แยก…" (ไม่ใส่ซ้ำถ้าชื่อขึ้นต้นด้วย แยก อยู่แล้ว) */
+export const yaek = (d: string | null | undefined) => { const t = String(d ?? "").trim(); return !t || /^แยก/.test(t) ? t : "แยก" + t; };
 export const routeItems = (rs: RouteLite[]): Item[] =>
-  rs.map((r) => ({ desc: `จ้างเหมาบริการงานตัดหญ้าสาย ${r.code} แยก${r.descr}`, qty: num(r.area), unit: "ตารางเมตร", price: num(r.rate) }));
+  rs.map((r) => ({ desc: `จ้างเหมาบริการงานตัดหญ้าสาย ${r.code} ${yaek(r.descr)}`.trim(), qty: num(r.area), unit: "ตารางเมตร", price: num(r.rate) }));
 export const letterItems = (rs: RouteLite[]): Item[] =>
-  rs.map((r) => ({ desc: `จ้างเหมาบริการตัดหญ้า สาย ${r.code} แยก${r.descr}`, qty: num(r.area), unit: "ตารางเมตร", price: num(r.rate) }));
+  rs.map((r) => ({ desc: `จ้างเหมาบริการตัดหญ้า สาย ${r.code} ${yaek(r.descr)}`.trim(), qty: num(r.area), unit: "ตารางเมตร", price: num(r.rate) }));
 
 export type DocOrderCtx = {
   round_no: number;

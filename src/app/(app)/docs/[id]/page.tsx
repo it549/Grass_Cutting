@@ -13,6 +13,7 @@ export default async function DocPage({ params, searchParams }: { params: Promis
   const sp = await searchParams;
   const { company, perm } = await requireCompany();
   if (!perm.docs) redirect("/rounds");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const [row] = await sql<{ id: string; order_id: string | null; kind: DocKind; no: string; doc_date: string; status: DocStatus; data: DocData; void_reason: string | null }[]>`
     select id, order_id, kind, no, doc_date, status, data, void_reason from documents where id = ${id} and company_id = ${company.id}
   `;

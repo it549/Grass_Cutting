@@ -21,6 +21,7 @@ const read = (fd: FormData) => {
     tax_id: s("tax_id"),
     director: s("director"),
     hmds: [...new Set(hmds)],
+    photo_lr: fd.get("photo_lr") === "on",
   };
 };
 
@@ -36,8 +37,8 @@ export async function addAgency(formData: FormData) {
   if (!row.name) done(P, "ต้องมีชื่อแขวง", true);
   const [{ count }] = await sql<{ count: number }[]>`select count(*)::int as count from agencies where company_id = ${company.id}`;
   await sql`
-    insert into agencies (name, short_name, address, phone, tax_id, director, hmds, company_id, sort)
-    values (${row.name}, ${row.short_name}, ${row.address}, ${row.phone}, ${row.tax_id}, ${row.director}, ${row.hmds}, ${company.id}, ${count ?? 0})
+    insert into agencies (name, short_name, address, phone, tax_id, director, hmds, photo_lr, company_id, sort)
+    values (${row.name}, ${row.short_name}, ${row.address}, ${row.phone}, ${row.tax_id}, ${row.director}, ${row.hmds}, ${row.photo_lr}, ${company.id}, ${count ?? 0})
   `;
   revalidatePath("/", "layout");
   done(P, `เพิ่ม ${row.name} แล้ว`);
@@ -62,7 +63,7 @@ export async function saveAgency(formData: FormData) {
   if (!row.name) done(P, "ต้องมีชื่อแขวง", true);
   await sql`
     update agencies set name = ${row.name}, short_name = ${row.short_name}, address = ${row.address}, phone = ${row.phone},
-      tax_id = ${row.tax_id}, director = ${row.director}, hmds = ${row.hmds}
+      tax_id = ${row.tax_id}, director = ${row.director}, hmds = ${row.hmds}, photo_lr = ${row.photo_lr}
     where id = ${id} and company_id = ${company.id}
   `;
   revalidatePath("/", "layout");

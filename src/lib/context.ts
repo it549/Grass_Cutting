@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { sql } from "@/lib/db/sql";
 import { fileUrl } from "@/lib/data/files";
+import type { Who } from "@/lib/data/views";
 import { perms, type Company, type Role } from "@/lib/types";
 
 export const COMPANY_COOKIE = "gc_company";
@@ -17,13 +18,20 @@ export const getContext = cache(async () => {
   if (!session) redirect("/login");
   const { userId, email } = session;
 
-  const rows = await sql<({ roles: Role[]; scope: string[] } & Company)[]>`
-    select cm.roles, cm.scope, c.*
-    from company_members cm
-    join companies c on c.id = cm.company_id
-    where cm.user_id = ${userId}
-    order by cm.created_at
-  `;
+  let rows: ({ roles: Role[]; scope: string[] } & Company)[];
+  try {
+    rows = await sql<({ roles: Role[]; scope: string[] } & Company)[]>`
+      select cm.roles, cm.scope, c.*
+      from company_members cm
+      join companies c on c.id = cm.company_id
+      where cm.user_id = ${userId}
+      order by cm.created_at
+    `;
+  } catch (e) {
+    // ฐานข้อมูลยังไม่ตรงกับโค้ด หรือต่อ PostgreSQL ไม่ได้: ไปหน้าบอกวิธีแก้ แทนหน้า error
+    const err = e as { code?: string; message?: string };
+    redirect(`/setup?code=${encodeURIComponent(err.code ?? "")}&e=${encodeURIComponent(String(err.message ?? e).slice(0, 300))}`);
+  }
   const memberships: Membership[] = rows.map(({ roles, scope, ...company }) => ({
     roles,
     scope,
@@ -42,7 +50,9 @@ export async function requireCompany() {
   const ctx = await getContext();
   if (!ctx.active) redirect("/onboarding");
   const { roles, scope } = ctx.active;
-  return { ...ctx, company: ctx.active.company, roles, scope, perm: perms(roles, scope) };
+  const company = ctx.active.company;
+  const who: Who = { companyId: company.id, roles, scope };
+  return { ...ctx, company, roles, scope, who, perm: perms(roles, scope) };
 }
 
 export async function logoUrl(path: string | null | undefined) {

@@ -3,14 +3,18 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { saveOrder, type OrderInput } from "@/app/(app)/orders/actions";
 import { addDays, fmt, fmt0, hmdFull, lineAmt, num, totals } from "@/lib/calc";
+import { dS, fyOf, mergePo, type Route } from "@/lib/model";
 
 type AgencyOpt = { id: string; name: string; hmds: string[] };
-type Row = { key: string; id?: string; code: string; descr: string; area: string; rate: string };
+type Row = { key: string; id?: string; code: string; descr: string; area: string; rate: string; road_id?: string | null; in_po: boolean };
+type RouteIn = { id?: string; code?: string; descr?: string; area?: number | string; rate?: number | string | null; road_id?: string | null; in_po?: boolean };
 
 const k = () => Math.random().toString(36).slice(2);
-const toRow = (r: { id?: string; code?: string; descr?: string; area?: number | string; rate?: number | string }): Row => ({
+const toRow = (r: RouteIn): Row => ({
   key: k(),
   id: r.id,
+  road_id: r.road_id ?? null,
+  in_po: r.in_po !== false,
   code: r.code ?? "",
   descr: r.descr ?? "",
   area: r.area === undefined || r.area === null || r.area === "" ? "" : String(r.area),
@@ -24,12 +28,12 @@ export function OrderEditor({
   readOnly,
   canRead,
 }: {
-  initial: Omit<OrderInput, "routes"> & { routes: { id?: string; code: string; descr: string; area: number | string; rate: number | string }[] };
+  initial: Omit<OrderInput, "routes"> & { routes: RouteIn[] };
   agencies: AgencyOpt[];
   readOnly: boolean;
   canRead: boolean;
 }) {
-  const [o, setO] = useState({ ...initial, round_no: String(initial.round_no) });
+  const [o, setO] = useState({ ...initial, round_no: String(initial.round_no), fy: initial.fy ? String(initial.fy) : "" });
   const [rows, setRows] = useState<Row[]>(() => (initial.routes.length ? initial.routes.map(toRow) : [toRow({})]));
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
@@ -43,7 +47,8 @@ export function OrderEditor({
     if (o.hmd && !l.includes(o.hmd)) l.push(o.hmd);
     return l;
   }, [ag, o.hmd]);
-  const t = totals(rows, o.vat_incl);
+  const t = totals(rows.filter((r) => r.in_po), o.vat_incl);
+  const showInPo = rows.some((r) => !r.in_po);
   const set = (f: keyof typeof o, v: string | boolean) =>
     setO((p) => {
       const n = { ...p, [f]: v };
@@ -51,7 +56,9 @@ export function OrderEditor({
         n.due_date = addDays(n.po_date, Math.trunc(num(n.due_days)));
       return n;
     });
-  const setRow = (key: string, f: keyof Row, v: string) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [f]: v } : r)));
+  // ใส่พื้นที่ให้สายในแผน = สายนั้นอยู่ในใบสั่งจ้างแล้ว
+  const setRow = (key: string, f: keyof Row, v: string | boolean) =>
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [f]: v, ...(f === "area" && num(v) > 0 && !r.in_po ? { in_po: true } : {}) } : r)));
 
   async function readPO(files: FileList | null) {
     if (!files?.length) return;
@@ -66,7 +73,21 @@ export function OrderEditor({
       if (j.po_file_path) setO((p) => ({ ...p, po_file_path: j.po_file_path }));
       if (!res.ok) throw new Error(j.error || "อ่านไม่สำเร็จ");
       const d = j.data;
-      const rs: Row[] = (d.routes ?? []).map(toRow);
+      let rs: Row[] = (d.routes ?? []).map(toRow);
+      // หมวดที่มีแผนอยู่แล้ว (เลือกสายจากทะเบียนไว้ก่อน): จับคู่สายในใบสั่งจ้างกับสายในแผนตามเลขสาย
+      const plan = rows.filter((r) => r.code.trim() && (r.id || r.road_id));
+      let mergeNote = "", warn: string[] = [];
+      if (plan.length) {
+        const m = mergePo(plan.map((r) => ({ ...r, id: r.id || r.key, order_id: "", seq: 0, area: num(r.area), rate: num(r.rate), length_km: null, done: null, done_date: null, road_id: r.road_id ?? null } as Route)),
+          rs.map((r) => ({ code: r.code, descr: r.descr, area: num(r.area), rate: num(r.rate) })));
+        rs = m.routes.map((r) => toRow({ ...r, id: plan.some((p) => p.id && p.id === r.id) ? r.id : undefined }));
+        mergeNote = m.note;
+      }
+      const readH = String(d.hmd || "").trim();
+      if (o.hmd && readH && !readH.includes(o.hmd)) warn.push(`ในใบสั่งจ้างเขียนว่า "${readH}" แต่ช่องนี้เป็นหมวด${o.hmd} ตรวจว่าเลือกหมวดถูกก่อนบันทึก`);
+      const poFy = fyOf(isDate(d.date) ? d.date : "");
+      if (poFy && num(o.fy) && poFy !== num(o.fy)) warn.push(`ใบสั่งจ้างลงวันที่ ${dS(d.date)} อยู่ในปีงบ ${poFy} แต่งวดนี้เป็นปีงบ ${o.fy}`);
+      warn = warn.filter(Boolean);
       const hmd = o.hmd || ag?.hmds.find((h) => String(d.hmd || "").includes(h)) || "";
       setO((p) => {
         const n = {
@@ -84,9 +105,11 @@ export function OrderEditor({
         return n;
       });
       if (rs.length) setRows(rs);
-      const tt = totals(rs, d.vatIncl !== false);
+      const tt = totals(rs.filter((r) => r.in_po), d.vatIncl !== false);
       setNote(
-        `Claude อ่านได้ ${rs.length} สายทาง รวม ${fmt0(tt.area)} ตร.ม. เป็นเงิน ${fmt(tt.total)} บาท` +
+        (mergeNote ? mergeNote + " · " : "") +
+        (warn.length ? warn.join(" · ") + " · " : "") +
+        `Claude อ่านได้ ${(d.routes ?? []).length} สายทาง รวม ${fmt0(tt.area)} ตร.ม. เป็นเงิน ${fmt(tt.total)} บาท` +
           (d.hmd && !hmd ? ` · ใบสั่งจ้างระบุหมวด "${d.hmd}" แต่ไม่ตรงกับหมวดในแขวงนี้ เลือกหมวดเอง` : "") +
           " · ตรวจกับใบสั่งจ้างจริงอีกครั้งก่อนกดบันทึก",
       );
@@ -104,7 +127,8 @@ export function OrderEditor({
       const r = await saveOrder({
         ...o,
         round_no: Math.trunc(num(o.round_no)),
-        routes: rows.map(({ id, code, descr, area, rate }) => ({ id, code, descr, area, rate })),
+        fy: Math.trunc(num(o.fy)),
+        routes: rows.map(({ id, code, descr, area, rate, road_id, in_po }) => ({ id, code, descr, area, rate, road_id, in_po })),
         force,
       });
       if (r?.confirm) {
@@ -163,6 +187,7 @@ export function OrderEditor({
             </select>
           </label>
           <label>งวดที่<input type="number" min={1} value={o.round_no} disabled={ro} onChange={(e) => set("round_no", e.target.value)} /></label>
+          <label>ปีงบประมาณ<input inputMode="numeric" value={o.fy} disabled={ro} placeholder="2570" onChange={(e) => set("fy", e.target.value)} /></label>
           <label>หมวด
             <select value={o.hmd} disabled={ro} onChange={(e) => set("hmd", e.target.value)}>
               <option value="">— เลือกหมวด —</option>
@@ -186,7 +211,7 @@ export function OrderEditor({
         </div>
         <table className="tbl rt">
           <thead>
-            <tr><th style={{ width: 40 }}>#</th><th style={{ width: 120 }}>รหัสสายทาง</th><th>ชื่อสายทาง</th><th style={{ width: 120 }} className="n">พื้นที่ (ตร.ม.)</th><th style={{ width: 100 }} className="n">ราคา/ตร.ม.</th><th style={{ width: 130 }} className="n">จำนวนเงิน</th>{!ro && <th style={{ width: 36 }} />}</tr>
+            <tr><th style={{ width: 40 }}>#</th><th style={{ width: 120 }}>รหัสสายทาง</th><th>ชื่อสายทาง</th><th style={{ width: 120 }} className="n">พื้นที่ (ตร.ม.)</th><th style={{ width: 100 }} className="n">ราคา/ตร.ม.</th><th style={{ width: 130 }} className="n">จำนวนเงิน</th>{showInPo && <th style={{ width: 96 }} className="c">ในใบสั่งจ้าง</th>}{!ro && <th style={{ width: 36 }} />}</tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
@@ -196,13 +221,14 @@ export function OrderEditor({
                 <td><input value={r.descr} disabled={ro} onChange={(e) => setRow(r.key, "descr", e.target.value)} /></td>
                 <td><input className="n" inputMode="decimal" value={r.area} disabled={ro} onChange={(e) => setRow(r.key, "area", e.target.value)} /></td>
                 <td><input className="n" inputMode="decimal" value={r.rate} disabled={ro} onChange={(e) => setRow(r.key, "rate", e.target.value)} /></td>
-                <td className="n">{fmt(lineAmt(r))}</td>
+                <td className="n">{r.in_po ? fmt(lineAmt(r)) : <span className="small muted">ไม่อยู่ในใบสั่งจ้าง</span>}</td>
+                {showInPo && <td className="c"><input type="checkbox" checked={r.in_po} disabled={ro} title="ติ๊กออก = อยู่ในแผนแต่ไม่อยู่ในใบสั่งจ้าง (ไม่ขึ้นในเอกสาร)" onChange={(e) => setRow(r.key, "in_po", e.target.checked)} /></td>}
                 {!ro && <td className="c"><button type="button" className="x" title="ลบแถว" onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((x) => x.key !== r.key) : [toRow({})]))}>×</button></td>}
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr><td /><td colSpan={2}>{!ro && <button type="button" className="link" onClick={() => setRows((rs) => [...rs, toRow({ rate: rs[rs.length - 1]?.rate ?? "" })])}>+ เพิ่มสายทาง</button>}</td><td className="n"><b>{fmt0(t.area)}</b></td><td /><td className="n"><b>{fmt(t.sum)}</b></td>{!ro && <td />}</tr>
+            <tr><td /><td colSpan={2}>{!ro && <button type="button" className="link" onClick={() => setRows((rs) => [...rs, toRow({ rate: rs[rs.length - 1]?.rate ?? "" })])}>+ เพิ่มสายทาง</button>}</td><td className="n"><b>{fmt0(t.area)}</b></td><td /><td className="n"><b>{fmt(t.sum)}</b></td>{showInPo && <td />}{!ro && <td />}</tr>
           </tfoot>
         </table>
         <div className="sumbox">

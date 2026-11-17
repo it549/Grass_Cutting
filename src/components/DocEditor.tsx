@@ -209,7 +209,7 @@ export function DocEditor({ id, initial, canEdit, canIssue = true, orderId, orde
         </section>
 
         <section><h3>ยอดเงิน</h3><div className="grid2">
-          <label className="chk wide"><input type="checkbox" checked={d.vatIncl !== false} disabled={L} onChange={(e) => change((x) => ({ ...x, vatIncl: e.target.checked }), true)} /> ราคาต่อหน่วยรวมภาษีมูลค่าเพิ่มแล้ว (แยก VAT ออกจากยอดรวม)</label>
+          <label className="chk wide"><input type="checkbox" checked={d.vatIncl !== false} disabled={L} onChange={(e) => { const on = e.target.checked; const [a, b] = on ? ["ราคายังไม่รวมภาษีมูลค่าเพิ่ม", "ราคาต่อหน่วยรวมภาษีมูลค่าเพิ่มแล้ว"] : ["ราคาต่อหน่วยรวมภาษีมูลค่าเพิ่มแล้ว", "ราคายังไม่รวมภาษีมูลค่าเพิ่ม"]; change((x) => ({ ...x, vatIncl: on, notes: (x.notes || []).map((n) => (n.t ? { ...n, t: n.t.replace(a, b) } : n)) }), true); }} /> ราคาต่อหน่วยรวมภาษีมูลค่าเพิ่มแล้ว (แยก VAT ออกจากยอดรวม)</label>
           {inp("wht", "หักภาษี ณ ที่จ่าย (%)", { numeric: true })}
           <label>ยอดรวมทั้งสิ้น<input value={fmt(t.total)} disabled /></label>
           {inp("words", "จำนวนเงินตัวอักษร (ว่าง = อัตโนมัติ)", { span: true, ph: bahtText(t.total) })}

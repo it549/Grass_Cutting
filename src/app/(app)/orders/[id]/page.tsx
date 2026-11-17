@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { requireCompany } from "@/lib/context";
 import { sql } from "@/lib/db/sql";
 import { fileUrl as toFileUrl } from "@/lib/data/files";
-import { loadAgencies, loadCosts, loadOrders, loadPhotos } from "@/lib/orders";
+import { loadAgencies, loadCosts, loadOrders } from "@/lib/orders";
 import { fmt, fmt0, fmtKm, hmdFull, lineAmt, thaiDate, totals } from "@/lib/calc";
-import { routeState, STATE_LABEL } from "@/lib/progress";
+import { loadWorld } from "@/lib/world";
+import { R_ST, rInfo, workIndex } from "@/lib/model";
 import { KIND, STATUS_LABEL, type DocKind, type DocStatus } from "@/lib/docs";
 import { OrderEditor } from "@/components/OrderEditor";
 import { PackButton } from "@/components/PackButton";
@@ -25,8 +26,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   if (!o) notFound();
   const ag = agencies.find((a) => a.id === o.agency_id);
   const manage = perm.orders;
-  const [photos, { costs, km }, docList] = await Promise.all([
-    loadPhotos({ orderIds: [o.id] }),
+  const [W, { costs }, docs] = await Promise.all([
+    loadWorld(),
     loadCosts([o.id]),
     perm.docs
       ? sql<{ id: string; kind: DocKind; no: string; doc_date: string; status: DocStatus; total: number }[]>`
@@ -36,11 +37,16 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   ]);
   const fileUrl = o.po_file_path && perm.prices ? toFileUrl(o.po_file_path) : null;
   const t = totals(o.routes, o.vat_incl);
-  const rs = o.routes.map((r) => ({ r, st: routeState(r, photos.filter((p) => p.route_id === r.id)) }));
-  const doneN = rs.filter((x) => x.st.s === 2).length;
-  const doneArea = rs.filter((x) => x.st.s === 2).reduce((s, x) => s + x.r.area, 0);
+  // สถานะสายมาจากบันทึกรายวัน (ติ๊กจบสาย/กม. ครบ) + รูปก่อน/หลัง แบบเดียวกับหน้างาน
+  const wi = workIndex(W.days);
+  const wo = W.orders.find((x) => x.id === o.id);
+  const rs = o.routes.map((r) => { const wr = wo?.routes.find((x) => x.id === r.id); return { r, st: wr ? rInfo(W, wi, wr) : null }; });
+  const stCls = { done: "s2", cut: "s1", wip: "s1", todo: "s0" } as const;
+  const doneN = rs.filter((x) => x.st?.s === "done").length;
+  const doneArea = rs.filter((x) => x.st?.s === "done").reduce((s, x) => s + x.r.area, 0);
   const c = costs[o.id] ?? { lab: 0, oth: 0, md: 0, days: 0 };
   const label = `งวดที่ ${o.round_no} ${hmdFull(o.hmd)}`;
+  const docList = docs as { id: string; kind: DocKind; no: string; doc_date: string; status: DocStatus; total: number }[];
 
   return (
     <div className="pad">
@@ -49,7 +55,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           <div className="eyebrow">Purchase order</div>
           <h2>{hmdFull(o.hmd)}</h2>
           <div className="meta">
-            <Link href={`/rounds/${o.agency_id}/${o.round_no}`}>← {ag?.name ?? "แขวง"} งวดที่ {o.round_no}</Link>
+            <Link href={`/rounds?ag=${o.agency_id}&fy=${o.fy}&no=${o.round_no}&o=${o.id}`}>← {ag?.name ?? "แขวง"} งวด {o.round_no}/{o.fy}</Link>
             {" · "}ใบสั่งจ้าง {o.po_no || "–"}{o.po_date ? ` ลงวันที่ ${thaiDate(o.po_date)}` : ""}
           </div>
         </div>
@@ -87,10 +93,10 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                   <td>{r.descr}</td>
                   <td className="n">{fmt0(r.area)}</td>
                   {perm.prices && <td className="n">{fmt(lineAmt(r))}</td>}
-                  <td className="c">{st.b} / {st.a}</td>
-                  <td className="n">{km[r.id] || r.length_km ? `${fmtKm(km[r.id] ?? 0)}${r.length_km ? " / " + fmtKm(r.length_km) : ""}` : "–"}</td>
-                  <td><span className={"st s" + st.s}>{STATE_LABEL[st.s]}</span></td>
-                  <td>{thaiDate(st.doneDate) || "–"}</td>
+                  <td className="c">{st ? `${st.b} / ${st.a}` : "–"}</td>
+                  <td className="n">{st && (st.km || st.L) ? `${fmtKm(st.km)}${st.L ? " / " + fmtKm(st.L) : ""}` : "–"}</td>
+                  <td>{st ? <span className={"st " + stCls[st.s]}>{R_ST[st.s][0]}</span> : "–"}</td>
+                  <td>{thaiDate(st?.finDate) || "–"}</td>
                   <td><Link href={`/orders/${o.id}/routes/${r.id}`}>รูป →</Link></td>
                 </tr>
               ))}
@@ -114,10 +120,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 </Link>
               ))}
               {!docList.some((d) => d.kind === k) && <p className="small muted" style={{ margin: "6px 0" }}>ยังไม่มี</p>}
-              {perm.docKind(k) && (
+              {!o.po_no ? <p className="small muted" style={{ margin: "6px 0" }}>รอใบสั่งจ้าง (อัปโหลดหรือกรอกเลขที่ใบสั่งจ้างด้านล่างก่อน)</p> : perm.docKind(k) && (
                 <form action={createDoc}>
                   <input type="hidden" name="kind" value={k} />
                   <input type="hidden" name="order" value={o.id} />
+                  <input type="hidden" name="back" value={`/orders/${o.id}`} />
                   <button className="btn sm dk" type="submit">+ สร้าง{KIND[k].short}</button>
                 </form>
               )}
@@ -126,7 +133,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         </div>
       </div>}
 
-      {perm.prices && <details className="card" style={{ marginTop: 18 }} open={o.routes.length === 0}>
+      {perm.prices && <details className="card" style={{ marginTop: 18 }} open={o.routes.length === 0 || !o.po_no}>
         <summary className="serif h3" style={{ cursor: "pointer", marginBottom: 0 }}>{manage ? "แก้ไขใบสั่งจ้างและสายทาง" : "ข้อมูลใบสั่งจ้าง"}</summary>
         <div style={{ marginTop: 14 }}>
           <OrderEditor
@@ -135,7 +142,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             readOnly={!manage}
             canRead={Boolean(process.env.ANTHROPIC_API_KEY)}
             initial={{
-              id: o.id, agency_id: o.agency_id, round_no: o.round_no, hmd: o.hmd, po_no: o.po_no ?? "", po_date: o.po_date ?? "",
+              id: o.id, agency_id: o.agency_id, fy: o.fy, round_no: o.round_no, hmd: o.hmd, po_no: o.po_no ?? "", po_date: o.po_date ?? "",
               proj_no: o.proj_no ?? "", due_days: o.due_days ? String(o.due_days) : "", due_date: o.due_date ?? "", penalty: o.penalty ?? "",
               vat_incl: o.vat_incl, note: o.note ?? "", po_file_path: "", routes: o.routes,
             }}

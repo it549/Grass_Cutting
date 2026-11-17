@@ -28,7 +28,7 @@ export function ImportOld({ companyId }: { companyId: string }) {
         data = JSON.parse(await f.text());
       }
       if (!data || typeof data !== "object" || !("inst" in data || "docs" in data || "settings" in data)) throw new Error("ไฟล์นี้ไม่ใช่ข้อมูลส่งออกจากระบบเดิม");
-      add(`อ่านไฟล์แล้ว: ใบสั่งจ้าง ${data.inst?.length ?? 0} · เอกสาร ${data.docs?.length ?? 0} · รายวัน ${data.daily?.length ?? 0} · รูป ${Object.keys(files).length} ไฟล์`);
+      add(`อ่านไฟล์แล้ว: สายทาง ${data.road?.length ?? 0} · ใบสั่งจ้าง/แผน ${data.inst?.length ?? 0} · เอกสาร ${data.docs?.length ?? 0} · รายวัน ${data.daily?.length ?? 0} · เบิก ${data.adv?.length ?? 0} · จ่ายค่าแรง ${data.pay?.length ?? 0} · น้ำมัน ${data.fuel?.length ?? 0} · รูป ${Object.keys(files).length} ไฟล์`);
       const r = await importOld(data);
       r.log.forEach(add);
       if (r.error) throw new Error(r.error);
@@ -41,7 +41,7 @@ export function ImportOld({ companyId }: { companyId: string }) {
           const path = `${companyId}/photos/${job.orderId}/${crypto.randomUUID()}.jpg`;
           const { error } = await uploadFile(path, new Blob([bytes as BlobPart], { type: "image/jpeg" }));
           if (error) { add(`รูป ${p.name || p.asset}: ${error}`); continue; }
-          list.push({ path, kind: p.kind, w: 0, h: 0, taken_date: p.date, taken_time: p.time, name: p.name, caption: p.cap });
+          list.push({ path, kind: p.kind, slot: p.slot, w: 0, h: 0, taken_date: p.date, taken_time: p.time, name: p.name, caption: p.cap, sig: p.sig });
         }
         if (list.length) {
           const res = await addPhotos(job.orderId, job.routeId, list);
