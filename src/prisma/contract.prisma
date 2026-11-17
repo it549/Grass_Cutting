@@ -1,0 +1,256 @@
+// use prisma-8
+
+// เขียนจาก supabase/setup_all.sql (migrations 0001-0005) ด้วยมือ — ไม่ได้ pull จาก DB จริง
+// ทุก model เป็น @@control(external): Prisma ไม่ยุ่งกับ DDL/RLS ของตารางเหล่านี้
+// (schema และ policy ทั้งหมดถูกจัดการโดย supabase/migrations อยู่แล้ว) ใช้แค่ query แบบมี type เท่านั้น
+//
+// คอลัมน์ที่ชี้ไป auth.users (created_by, user_id, updated_by, profiles.id) เก็บเป็น Uuid เฉย ๆ
+// ไม่ได้ผูก relation ไปยัง auth.users เพื่อให้ไฟล์นี้ไม่ต้องพึ่ง extension ของ Supabase
+//
+// คำเตือน: การต่อผ่าน Prisma ใช้ connection string ตรง ไม่ผ่าน PostgREST จึงไม่มี JWT/auth.uid()
+// ของผู้ใช้ติดไปด้วย กฎ RLS ที่อ้าง auth.uid() จะมองว่าไม่มีผู้ใช้ล็อกอิน (เว้นแต่ต่อด้วย
+// connection ที่เป็นสิทธิ์ postgres/service role ซึ่ง bypass RLS ได้)
+model Profile {
+  id        Uuid     @id
+  email     String
+  fullName  String?  @map("full_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("profiles")
+  @@control(external)
+}
+
+model Company {
+  id              Uuid            @id @default(sql`gen_random_uuid()`)
+  name            String
+  nameEn          String?         @map("name_en")
+  taxId           String?         @map("tax_id")
+  branch          String?         @default("สำนักงานใหญ่")
+  address         String?
+  phone           String?
+  email           String?
+  signerName      String?         @map("signer_name")
+  signerTitle     String?         @map("signer_title")
+  bankName        String?         @map("bank_name")
+  bankAccountNo   String?         @map("bank_account_no")
+  bankAccountName String?         @map("bank_account_name")
+  logoPath        String?         @map("logo_path")
+  createdBy       Uuid?           @map("created_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @default(now()) @map("updated_at")
+
+  members         CompanyMember[]
+  invites         Invite[]
+  agencies        Agency[]
+  orders          Order[]
+  routes          Route[]
+  photos          RoutePhoto[]
+  documents       Document[]
+  crew            Crew[]
+  dailyLogs       DailyLog[]
+
+  @@map("companies")
+  @@control(external)
+}
+
+model CompanyMember {
+  companyId Uuid     @map("company_id")
+  userId    Uuid     @map("user_id")
+  // คอลัมน์เดิม (public.member_role: owner/admin/staff) คงไว้ให้โค้ดรุ่นก่อนใช้ได้ ระบบ sync ให้เอง
+  role      String   @default("staff")
+  // บทบาทจริงที่ใช้ตรวจสิทธิ์ตอนนี้: owner/office/account/field/viewer (มีได้หลายบทบาท)
+  roles     String[] @default(["field"])
+  // ขอบเขตที่เห็น: "<agency_id>" หรือ "<agency_id>|<hmd>" ว่าง = เห็นทั้งหมด
+  scope     String[] @default([])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@id([companyId, userId])
+  @@map("company_members")
+  @@control(external)
+}
+
+model Invite {
+  id        Uuid     @id @default(sql`gen_random_uuid()`)
+  companyId Uuid     @map("company_id")
+  email     String
+  role      String   @default("staff")
+  roles     String[] @default(["field"])
+  scope     String[] @default([])
+  createdBy Uuid?    @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, email])
+  @@map("invites")
+  @@control(external)
+}
+
+model Agency {
+  id        Uuid     @id @default(sql`gen_random_uuid()`)
+  companyId Uuid     @map("company_id")
+  name      String
+  shortName String?  @map("short_name")
+  address   String?
+  phone     String?
+  taxId     String?  @map("tax_id")
+  director  String?
+  // รหัสหมวดทั้งหมดในแขวงนี้
+  hmds      String[] @default([])
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  orders    Order[]
+
+  @@map("agencies")
+  @@control(external)
+}
+
+model Order {
+  id         Uuid         @id @default(sql`gen_random_uuid()`)
+  companyId  Uuid         @map("company_id")
+  agencyId   Uuid         @map("agency_id")
+  roundNo    Int          @map("round_no")
+  hmd        String       @default("")
+  poNo       String?      @map("po_no")
+  poDate     Date?        @map("po_date")
+  projNo     String?      @map("proj_no")
+  dueDays    Int?         @map("due_days")
+  dueDate    Date?        @map("due_date")
+  penalty    String?
+  vatIncl    Boolean      @default(true) @map("vat_incl")
+  poFilePath String?      @map("po_file_path")
+  note       String?
+  createdBy  Uuid?        @map("created_by")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @default(now()) @map("updated_at")
+
+  company    Company      @relation(fields: [companyId], references: [id])
+  agency     Agency       @relation(fields: [agencyId], references: [id])
+  routes     Route[]
+  photos     RoutePhoto[]
+  documents  Document[]
+  dailyLogs  DailyLog[]
+
+  @@unique([companyId, agencyId, roundNo, hmd])
+  @@map("orders")
+  @@control(external)
+}
+
+model Route {
+  id        Uuid                              @id @default(sql`gen_random_uuid()`)
+  orderId   Uuid                              @map("order_id")
+  companyId Uuid                              @map("company_id")
+  seq       Int                               @default(0)
+  code      String                            @default("")
+  descr     String                            @default("")
+  area      Decimal(precision: 14, scale: 2)  @default(0)
+  rate      Decimal(precision: 12, scale: 4)  @default(0)
+  // ว่าง = ให้ระบบดูจากรูป (มีทั้งรูปก่อนและหลัง = เสร็จ)
+  done      Boolean?
+  doneDate  Date?                             @map("done_date")
+  lengthKm  Decimal(precision: 10, scale: 3)? @map("length_km")
+  createdAt DateTime                          @default(now()) @map("created_at")
+
+  order     Order                             @relation(fields: [orderId], references: [id])
+  company   Company                           @relation(fields: [companyId], references: [id])
+  photos    RoutePhoto[]
+
+  @@map("routes")
+  @@control(external)
+}
+
+model RoutePhoto {
+  id        Uuid     @id @default(sql`gen_random_uuid()`)
+  companyId Uuid     @map("company_id")
+  orderId   Uuid     @map("order_id")
+  routeId   Uuid     @map("route_id")
+  // "b" = ก่อนตัด, "a" = หลังตัด
+  kind      String
+  path      String
+  w         Int?
+  h         Int?
+  takenDate Date?    @map("taken_date")
+  takenTime String?  @map("taken_time")
+  caption   String   @default("")
+  name      String?
+  sort      Int      @default(0)
+  createdBy Uuid?    @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id])
+  route     Route    @relation(fields: [routeId], references: [id])
+
+  @@map("route_photos")
+  @@control(external)
+}
+
+model Document {
+  id         Uuid                             @id @default(sql`gen_random_uuid()`)
+  companyId  Uuid                             @map("company_id")
+  orderId    Uuid?                            @map("order_id")
+  // "qt" ใบเสนอราคา · "dl" หนังสือส่งมอบงาน · "rc" ใบกำกับภาษี/ใบเสร็จรับเงิน
+  kind       String
+  no         String
+  docDate    Date                             @default(sql`current_date`) @map("doc_date")
+  // "draft" | "issued" | "void"
+  status     String                           @default("draft")
+  data       Json                             @default(sql`'{}'::jsonb`)
+  total      Decimal(precision: 14, scale: 2) @default(0)
+  issuedAt   DateTime?                        @map("issued_at")
+  voidReason String?                          @map("void_reason")
+  createdBy  Uuid?                            @map("created_by")
+  createdAt  DateTime                         @default(now()) @map("created_at")
+  updatedAt  DateTime                         @default(now()) @map("updated_at")
+
+  company    Company                          @relation(fields: [companyId], references: [id])
+  order      Order?                           @relation(fields: [orderId], references: [id])
+
+  @@unique([companyId, no])
+  @@map("documents")
+  @@control(external)
+}
+
+model Crew {
+  id        Uuid                             @id @default(sql`gen_random_uuid()`)
+  companyId Uuid                             @map("company_id")
+  name      String
+  wage      Decimal(precision: 10, scale: 2) @default(0)
+  sort      Int                              @default(0)
+  active    Boolean                          @default(true)
+  createdAt DateTime                         @default(now()) @map("created_at")
+
+  company   Company                          @relation(fields: [companyId], references: [id])
+
+  @@map("crew")
+  @@control(external)
+}
+
+model DailyLog {
+  companyId Uuid                             @map("company_id")
+  logDate   Date                             @map("log_date")
+  orderId   Uuid?                            @map("order_id")
+  routeIds  Uuid[]                           @default([]) @map("route_ids")
+  // คนงานของวันนี้: [{id, name, wage, ot, on}]
+  crew      Json                             @default(sql`'[]'::jsonb`)
+  fuel      Decimal(precision: 12, scale: 2) @default(0)
+  other     Decimal(precision: 12, scale: 2) @default(0)
+  note      String                           @default("")
+  // งานของวัน: [{ r: route_id, km: ระยะที่ตัดได้ หรือ null }]
+  work      Json                             @default(sql`'[]'::jsonb`)
+  updatedBy Uuid?                            @map("updated_by")
+  createdAt DateTime                         @default(now()) @map("created_at")
+  updatedAt DateTime                         @default(now()) @map("updated_at")
+
+  company   Company                          @relation(fields: [companyId], references: [id])
+  order     Order?                           @relation(fields: [orderId], references: [id])
+
+  @@id([companyId, logDate])
+  @@map("daily_logs")
+  @@control(external)
+}

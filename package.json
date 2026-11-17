@@ -1,0 +1,45 @@
+{
+  "name": "grass-cutting",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "contract:emit": "prisma contract emit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@opennextjs/cloudflare": "^1.20.17",
+    "@prisma/orm-postgres": "^8.0.0-rc.24",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.10",
+    "fflate": "^0.8.3",
+    "html2canvas": "^1.4.1",
+    "jose": "^6.2.17",
+    "jspdf": "^3.0.4",
+    "next": "16.4.6",
+    "postgres": "^4.1.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/mcp": "^0.0.85",
+    "@prisma/cli-engine": "^0.10.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "prisma": "^8.0.0-rc.34",
+    "typescript": "^5",
+    "wrangler": "^4.161.0"
+  }
+}

@@ -1,0 +1,96 @@
+/* หน้ากระดาษพิมพ์ A4 (เหมือนระบบเดิม) */
+/* printed pages (ERP style) */
+.pgwrap .bzpage{box-shadow:0 2px 10px #0003;margin:0 auto 16px;transform-origin:top center}
+.bzpage{width:794px;height:1123px;box-sizing:border-box;padding:40px 44px;background:#fff;color:#111;font-family:"Sarabun",sans-serif;font-weight:400;font-size:13px;line-height:1.45;position:relative;overflow:hidden;text-align:left}
+.bzpage *{box-sizing:border-box}
+.bzbody{display:flex;flex-direction:column;gap:12px}
+.bzfoot{position:absolute;left:44px;right:44px;bottom:14px;font-size:10.5px;color:#666;text-align:right;border-top:1px solid #ddd;padding-top:3px}
+.bzhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:10px;border-bottom:2px solid #1C5A8C}
+.bzco{display:flex;gap:12px;align-items:flex-start;max-width:62%;font-size:12px;color:#333;overflow-wrap:anywhere}
+.bzco img{max-width:92px;max-height:72px;object-fit:contain;flex:none}
+.bzco b{display:block;font-size:15px;color:#111}
+.bztitle{text-align:right;flex:none;max-width:38%}
+.bztitle h1{font-family:inherit;font-size:21px;font-weight:700;color:#1C5A8C;margin:0;line-height:1.25}
+.bztitle .en{font-size:12px;color:#555}
+.bzcopy{display:inline-block;margin-top:6px;padding:1px 10px;border:1px solid #1C5A8C;border-radius:3px;font-size:12px;color:#1C5A8C}
+.bzvoid{display:inline-block;margin-top:6px;margin-left:6px;padding:1px 10px;border:1px solid #c0392b;border-radius:3px;font-size:12px;color:#c0392b;font-weight:700}
+.bzparty{display:grid;grid-template-columns:1.35fr 1fr;gap:10px}
+.bzbox{border:1px solid #c9d1d6;border-radius:4px;padding:8px 10px;font-size:12.5px;overflow-wrap:anywhere;white-space:pre-line}
+.bzbox .lb{font-size:11px;color:#555;margin-bottom:2px}
+.bzbox b{font-size:13.5px}
+.bzkv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;white-space:normal}
+.bzkv span{color:#555}
+.bzkv b{font-weight:600;font-size:12.5px;overflow-wrap:anywhere}
+table.bzitems{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12.5px}
+table.bzitems th{background:#1C5A8C;color:#fff;font-weight:600;font-size:12px;padding:6px;border:1px solid #1C5A8C;text-align:center}
+table.bzitems td{padding:5px 6px;border:0;border-bottom:1px solid #e1e6e9;color:#111;background:#fff;vertical-align:top;overflow-wrap:anywhere;white-space:pre-line}
+table.bzitems td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.bzitems td.c{text-align:center}
+table.bzitems tr.tt td{font-weight:700;background:#e8f0f7}
+table.bzitems tr.gh td{font-weight:700;background:#f1f5f8;color:#1C5A8C}
+.bzsum{display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start}
+.bzwords{background:#f1f5f8;border-radius:4px;padding:6px 10px;font-weight:600;text-align:center;margin-bottom:8px}
+.bztot{border:1px solid #c9d1d6;border-radius:4px;overflow:hidden}
+.bztot div{display:flex;justify-content:space-between;gap:8px;padding:4px 10px;font-variant-numeric:tabular-nums}
+.bztot div+div{border-top:1px solid #eef1f3}
+.bztot .g{background:#e8f0f7;font-weight:700}
+.bznote{font-size:12px;margin-top:6px;white-space:pre-line;overflow-wrap:anywhere}
+.bzsign{display:flex;gap:18px;text-align:center;font-size:12.5px;padding-top:26px}
+.bzsign>div{flex:1 1 0;min-width:0}
+.bzsign .ln{border-bottom:1px dotted #333;height:34px;margin:0 10px 6px}
+.bzsign .dt{color:#555;font-size:11.5px;margin-top:2px}
+.bzcont{font-size:12px;color:#555;border-bottom:1px solid #ddd;padding-bottom:4px}
+.bzpara{font-size:13px;text-indent:2.5em;white-space:pre-line;overflow-wrap:anywhere}
+.bzh{font-weight:700;font-size:14px;color:#1C5A8C;border-bottom:1px solid #c9d1d6;padding-bottom:3px}
+.bzpairs{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.bzpairs .ph{height:250px;border:1px solid #ccc;background:#f4f4f4 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px}
+.bzpairs .cap{font-size:11.5px;text-align:center;color:#333;margin-bottom:4px}
+.bzpairs .rh{grid-column:1/3;font-weight:600;font-size:12px;color:#1C5A8C;margin-top:2px}
+/* letter (from ERP cover letter) */
+.bzpage.ct{padding-left:113px;padding-right:76px;font-size:15px;line-height:1.8}
+.bzpage.ct .bzfoot{left:113px;right:76px}
+.cthead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1.5px solid #1C5A8C;padding-bottom:8px;line-height:1.45}
+.ctco{display:flex;gap:12px;align-items:flex-start;font-size:13px;color:#333;min-width:0;overflow-wrap:anywhere}
+.ctco img{max-width:80px;max-height:64px;object-fit:contain;flex:none}
+.ctco b{display:block;font-size:15px;color:#111;font-weight:700}
+.ctco .en{font-size:13px;color:#111;font-weight:600}
+.cthead .cp{color:#c0392b;font-weight:700;font-size:15px;flex:none}
+.bzpage.lt .bzbody{gap:2px}
+.lt .cthead{margin-bottom:14px}
+.ltno{font-size:15px}
+.ltdate{font-size:15px;padding-left:50%;margin:4px 0 10px}
+.lthead{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.ltrow{display:flex;gap:12px;font-size:15px}
+.ltk{flex:none;min-width:52px}
+.ltv{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.ltp{font-size:15px;text-indent:94px;white-space:pre-line;overflow-wrap:anywhere;text-align:justify;margin-top:6px}
+.ltsign{margin-left:50%;text-align:center;font-size:15px;padding-top:18px}
+.ltgap{height:62px}
+.ltcontact{font-size:13px;margin-top:34px;white-space:pre-line}
+.bzpage.lt{padding-left:94px;padding-right:66px}.bzpage.lt .bzfoot{left:94px;right:66px}
+table.lttab{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 4px}
+table.lttab th{font-weight:700;border:1px solid #555;padding:4px 6px;background:#f1f1f1;text-align:center}
+table.lttab td{border:1px solid #555;padding:3px 6px;vertical-align:top;overflow-wrap:anywhere}
+table.lttab td.n{text-align:right;white-space:nowrap}table.lttab td.c{text-align:center}
+table.lttab tr.tt td{font-weight:700;background:#f7f7f7}
+.ltencl{font-size:15px;white-space:pre-line}
+.ltli2{font-size:14px;padding-left:48px;line-height:1.75;overflow-wrap:anywhere}
+.lttitle{text-align:center;font-weight:700;font-size:18px;margin:2px 0 6px}
+/* letter: Thai official-letter layout */
+.bzpage.lt{padding:60px 76px 56px 113px;font-size:15px;line-height:1.65}
+.bzpage.lt .bzbody{gap:0}
+.lt .cthead{margin-bottom:6px}
+.lt .lttitle{font-size:18px;margin:14px 0 10px;letter-spacing:0}
+.lt .ltno{margin-bottom:0}
+.lt .ltdate{padding-left:0;text-align:right;margin:0 0 14px}
+.lt .lthead{gap:4px;margin-bottom:6px}
+.lt .ltp{text-align:left;text-indent:94px;margin-top:10px}
+.lt .ltli2{padding-left:94px;font-size:15px;line-height:1.65;margin-top:2px}
+.lt .bzfoot{display:none}
+.lt .bzcont{text-align:center;border:0;color:#111;font-size:15px;padding:0 0 10px}
+.lt .ltsign{margin-left:42%;padding-top:26px;line-height:1.7}
+.lt .ltgap{height:64px}
+.lt .ltcontact{margin-top:44px;font-size:13.5px;line-height:1.5}
+.pgwrap .bzpage{margin:0 auto 16px}
+.pvbox{position:relative;overflow:hidden}
+.bzpairs .ph{background-size:cover;background-position:center}
