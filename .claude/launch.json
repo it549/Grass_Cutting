@@ -5,7 +5,7 @@
       "name": "grass-cutting-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "port": 3004
     }
   ]
 }

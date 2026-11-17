@@ -38,7 +38,7 @@ cp .env.example .env
 ```bash
 npm install
 npm run build
-npm run start                # http://localhost:3000 — โหมดโปรดักชัน ควรใช้ตัวนี้บนเซิร์ฟเวอร์จริง
+npm run start                # http://localhost:3004 — โหมดโปรดักชัน ควรใช้ตัวนี้บนเซิร์ฟเวอร์จริง
 ```
 
 รันไว้เบื้องหลังตลอดเวลาด้วย [pm2](https://pm2.keymetrics.io/) (กันไม่ให้ดับตอนปิดหน้าต่าง/restart เครื่อง):
@@ -70,7 +70,7 @@ pm2 startup                  # ทำตามคำสั่งที่ขึ�
 
    ingress:
      - hostname: grass-cutting.ตัวอย่างโดเมน.com
-       service: http://localhost:3000
+       service: http://localhost:3004
      - service: http_status:404
    ```
 5. ผูกโดเมนเข้ากับ tunnel
@@ -84,6 +84,8 @@ pm2 startup                  # ทำตามคำสั่งที่ขึ�
    รันเป็น background service ตลอดเวลาด้วย `cloudflared service install` (ต้องรันบนเครื่อง/เซิร์ฟเวอร์เดียวกับที่รัน `npm run start`)
 
 หลังจากนี้เข้าเว็บได้ที่ `https://grass-cutting.ตัวอย่างโดเมน.com` โดยไม่ต้องเปิดพอร์ต/ตั้ง port forwarding ที่ router เอง
+
+> เว็บรันที่พอร์ต **3004** (ตั้งไว้ใน `package.json` ทั้ง `dev` และ `start`) · ถ้าสร้าง tunnel จากหน้า Cloudflare (ติดตั้งด้วย token แทนไฟล์ `config.yml`) ให้ตั้งที่ Cloudflare One → **Networks → Tunnels** → เลือก tunnel → **Public Hostname** → Service เป็น `http://localhost:3004`
 
 ## ขั้นที่ 5 · ใส่คีย์ Claude API (ให้ Claude อ่านใบสั่งจ้าง)
 
@@ -149,7 +151,7 @@ pm2 startup                  # ทำตามคำสั่งที่ขึ�
 ```bash
 cp .env.example .env         # ใส่ DATABASE_URL, AUTH_SECRET, ANTHROPIC_API_KEY
 npm install
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3004
 ```
 
 โครงสร้าง
