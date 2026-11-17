@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "@/lib/db/sql";
 import type { Role } from "@/lib/types";
 
-// พอร์ตจาก supabase/setup_all.sql (is_member/has_any/can_work/in_scope/...) — เดิมใช้ auth.uid()
+// พอร์ตจากฟังก์ชัน SQL เดิม (is_member/has_any/can_work/in_scope/...) ที่เคยใช้ auth.uid()
 // เป็น "ผู้ใช้ปัจจุบัน" โดยปริยาย ตอนนี้ไม่มี RLS/session context แล้ว จึงรับ userId มาตรงๆเป็น parameter
 
 type Membership = { roles: Role[]; scope: string[] };

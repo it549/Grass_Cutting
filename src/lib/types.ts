@@ -1,4 +1,4 @@
-/** บทบาท (คนเดียวมีได้หลายบทบาท) ดู supabase/migrations/0005_roles.sql */
+/** บทบาท (คนเดียวมีได้หลายบทบาท) ดู scripts/local_postgres_schema.sql */
 export type Role = "owner" | "office" | "account" | "field" | "viewer";
 export const ROLES: Role[] = ["owner", "office", "account", "field", "viewer"];
 

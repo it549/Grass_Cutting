@@ -154,4 +154,3 @@ npm run dev                  # http://localhost:3000
 - `src/lib/context.ts` ผู้ใช้ปัจจุบัน + บริษัทที่เลือก (คุกกี้ `gc_company`)
 - ไฟล์แนบ (รูป/โลโก้/PO) เก็บใต้ `storage/company-files/<company_id>/...` บนดิสก์เครื่องที่รันเว็บ (ไม่ sync ไปที่อื่น) — อ่านผ่าน `src/app/api/files/[...path]/route.ts`, อัปโหลดผ่าน `src/app/api/files/upload/route.ts` ทั้งสองตรวจสิทธิ์ก่อนเสมอ
 - `src/app/(app)/settings/*` หน้าตั้งค่า
-- `supabase/` เป็นไฟล์เก่าจากยุคที่ยังใช้ Supabase (เก็บไว้อ้างอิงโครงสร้างตารางเท่านั้น ไม่ได้ใช้รันจริงแล้ว ของจริงอยู่ที่ `scripts/local_postgres_schema.sql`)
