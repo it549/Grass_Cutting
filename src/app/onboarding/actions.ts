@@ -14,7 +14,7 @@ export async function createCompany(formData: FormData) {
 
   let companyId: string;
   try {
-    companyId = await createCompanyDb(session.userId, name);
+    companyId = await createCompanyDb(session.userId, name, session.email);
   } catch (err) {
     redirect("/onboarding?msg=" + encodeURIComponent(err instanceof Error ? err.message : String(err)));
   }
