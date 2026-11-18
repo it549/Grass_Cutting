@@ -54,3 +54,7 @@ dist/
 
 # playwright mcp debug output
 /.playwright-mcp/
+
+# แพ็กเกจย้ายเครื่อง (มี .env และฐานข้อมูลทั้งหมด) ห้าม commit
+/move-package/
+*.dump
