@@ -147,7 +147,7 @@ export function RoadImport({ W, A, hmd, canRead, onClose, onSaved }: {
           {Object.entries(cnt).map(([h, n]) => <Chip key={h} c={h ? "g" : "w"}>{h ? "หมวด" + h : "ไม่ระบุหมวด"} {n} สาย</Chip>)}
           {extraH.length ? <span className="small" style={{ color: "var(--warn)" }}>หมวดใหม่ {extraH.join(", ")} จะถูกเพิ่มเข้าแขวงตอนบันทึก</span> : null}
         </div>
-        <table className="tb rgt" style={{ marginTop: 8 }}>
+        <div className="tscroll"><table className="tb rgt" style={{ marginTop: 8 }}>
           <thead><tr><th></th><th>หมวด</th><th>เลขสาย</th><th>ชื่อสาย</th><th>อำเภอ</th><th className="n">กม.</th></tr></thead>
           <tbody>
             {rows.map((r, i) => (
@@ -161,7 +161,7 @@ export function RoadImport({ W, A, hmd, canRead, onClose, onSaved }: {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </> : null}
     </Dialog>
   );

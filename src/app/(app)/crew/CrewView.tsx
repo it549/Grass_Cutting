@@ -166,9 +166,9 @@ function PayTab({ tabs, day, today, crew, logs, adv, pays, jobs, head, logo }: P
         <div className="card">
           <div className="ch"><h3>เบิกล่วงหน้าสัปดาห์นี้ <span className="m">{advs.length} รายการ</span></h3><button className="btn sm" type="button" onClick={() => setAdvOpen((v) => !v)}>+ บันทึกเบิก</button></div>
           {advOpen ? <div className="cb" style={{ paddingBottom: 0 }}><AdvBox crew={crew} date={payDay} onClose={() => setAdvOpen(false)} /></div> : null}
-          {advs.length ? <table className="tb"><tbody><tr><th>วันที่</th><th>คนงาน</th><th>หมายเหตุ</th><th className="n">จำนวน</th><th /></tr>
+          {advs.length ? <div className="tscroll"><table className="tb"><tbody><tr><th>วันที่</th><th>คนงาน</th><th>หมายเหตุ</th><th className="n">จำนวน</th><th /></tr>
             {advs.map((a) => <tr key={a.id}><td className="small">{WD[wdOf(a.adv_date)]}. {dShort(a.adv_date)}</td><td><b>{crewOf(a.crew_id)?.name ?? "?"}</b></td><td className="small muted">{a.note}</td><td className="n num">{fmt(a.amt)}</td><td className="n"><Armed label="ลบ" armedLabel="กดอีกครั้ง" onGo={() => delAdv(a.id)} /></td></tr>)}
-          </tbody></table> : <div className="emp">ไม่มีการเบิกสัปดาห์นี้</div>}
+          </tbody></table></div> : <div className="emp">ไม่มีการเบิกสัปดาห์นี้</div>}
           {P.some((p) => p.carry) ? <div className="cf"><span>ยอดค้างยกมาจากสัปดาห์ก่อน</span><b className="num">{fmt(tot((p) => p.carry))}</b></div> : null}
         </div>
         <div className="card"><div className="ch"><h3>วิธีจ่าย</h3></div>
@@ -247,7 +247,7 @@ function RegTab({ tabs, day, today, crew, logs, adv, pays, head, can }: Props) {
       </div>
       <div className="g2r">
         <div className="card">{L.length ? (
-          <table className="tb"><tbody>
+          <div className="tscroll"><table className="tb"><tbody>
             <tr><th>ชื่อ-สกุล</th><th>ชื่อเล่น</th><th>โทร</th>{can.wages ? <><th className="n">ค่าแรง/วัน</th><th>รับเงินทาง</th></> : <th>ตำแหน่ง</th>}{can.daily ? <th className="n">เบิกค้าง</th> : null}<th>สถานะ</th></tr>
             {L.map((c) => (
               <tr key={c.id} className={"click" + (c.id === sel ? " sel" : "") + (c.active ? "" : " dim")} onClick={() => pick(c.id)}>
@@ -257,7 +257,7 @@ function RegTab({ tabs, day, today, crew, logs, adv, pays, head, can }: Props) {
                 <td>{c.active ? <Chip c="g">ทำงาน</Chip> : <Chip c="w">พักงาน</Chip>}</td>
               </tr>
             ))}
-          </tbody></table>
+          </tbody></table></div>
         ) : <div className="emp big"><h3>ยังไม่มีคนงานในทะเบียน</h3><p>{can.wages ? 'กด "+ เพิ่มคนงาน" หรือเพิ่มจากหน้าบันทึกรายวัน' : "เพิ่มคนงานได้จากหน้าบันทึกรายวัน"}</p></div>}</div>
         <div className="card">{C ? <>
           <div className="ch"><h3>{C.name || "(ไม่มีชื่อ)"}</h3>{can.wages ? <span className="small" style={{ color: /ไม่สำเร็จ/.test(st) ? "var(--bad)" : "var(--acc)" }}>{st}</span> : null}</div>
@@ -306,13 +306,13 @@ function AdvTab({ tabs, day, today, crew, adv, pays }: Props) {
       </div>
       <div className="row2">
         <div className="card"><div className="ch"><h3>รายการเบิก</h3></div>
-          {L.length ? <table className="tb"><tbody><tr><th>วันที่</th><th>คนงาน</th><th>หมายเหตุ</th><th className="n">จำนวน</th><th>สถานะ</th><th /></tr>
+          {L.length ? <div className="tscroll"><table className="tb"><tbody><tr><th>วันที่</th><th>คนงาน</th><th>หมายเหตุ</th><th className="n">จำนวน</th><th>สถานะ</th><th /></tr>
             {L.map((a) => { const p = dedOf(a); return (
               <tr key={a.id}><td className="small">{dS(a.adv_date)}</td><td><b>{crew.find((c) => c.id === a.crew_id)?.name ?? "?"}</b></td><td className="muted small">{a.note}</td><td className="n num">{fmt(a.amt)}</td>
                 <td>{p ? <Chip c="g">หักแล้ว {dShort(p.pay_date)}</Chip> : <Chip c="w">รอหัก</Chip>}</td>
                 <td className="n">{p ? null : <Armed label="ลบ" armedLabel="กดอีกครั้ง" onGo={() => delAdv(a.id)} />}</td></tr>
             ); })}
-          </tbody></table> : <div className="emp">ยังไม่มีการเบิก</div>}
+          </tbody></table></div> : <div className="emp">ยังไม่มีการเบิก</div>}
         </div>
         <div className="card"><div className="ch"><h3>บันทึกเบิกใหม่</h3></div><div className="cb"><AdvBox crew={crew} date={today} /></div>
           {ppl.length ? <><div className="ch" style={{ borderTop: "1px solid var(--line2)" }}><h3>ค้างอยู่</h3></div>
@@ -384,9 +384,9 @@ function FuelTab({ tabs, day, today, crew, logs, fuel, cars, can }: Props) {
         }) : <div className="emp" style={{ padding: 18 }}>ยังไม่มีรายการ · เพิ่มทะเบียนรถด้านล่าง แล้วกด + เบิก</div>}
       </div>
       {mons.length ? <div className="card" style={{ marginTop: 16 }}><div className="ch"><h3>สรุปรายเดือน</h3></div>
-        <table className="tb"><tbody><tr><th>เดือน</th><th className="n">ตัดหญ้า (ลิตร)</th><th className="n">ตัดหญ้า (บาท)</th><th className="n">รถ (ลิตร)</th><th className="n">รถ (บาท)</th><th className="n">รวม (บาท)</th></tr>
+        <div className="tscroll"><table className="tb"><tbody><tr><th>เดือน</th><th className="n">ตัดหญ้า (ลิตร)</th><th className="n">ตัดหญ้า (บาท)</th><th className="n">รถ (ลิตร)</th><th className="n">รถ (บาท)</th><th className="n">รวม (บาท)</th></tr>
           {mons.map((m) => { const xs = fuel.filter((f) => f.log_date.startsWith(m)); return <tr key={m}><td>{monthTitle(m)}</td><td className="n">{fmtN(lit(xs, "mower"))}</td><td className="n">{fmt0(tot(xs, "mower"))}</td><td className="n">{fmtN(lit(xs, "car"))}</td><td className="n">{fmt0(tot(xs, "car"))}</td><td className="n"><b>{fmt0(tot(xs))}</b></td></tr>; })}
-        </tbody></table></div> : null}
+        </tbody></table></div></div> : null}
       <CarsCard key={cars.map((c) => c.id + c.plate + c.name + (c.fuel_type ?? "") + c.active).join("|")} cars={cars} fuel={fuel} edit={can.cars} />
     </div>
     {dlg ? <FuelDialog f0={dlg.f0} kind0={dlg.kind} date={today} crew={crew} cars={cars} recent={fuel} onClose={() => setDlg(null)} /> : null}
@@ -411,7 +411,7 @@ function CarsCard({ cars, fuel, edit }: { cars: Car[]; fuel: Fuel[]; edit: boole
     <div className="card" style={{ marginTop: 16 }}>
       <div className="ch"><h3>ทะเบียนรถ <span className="m">ใช้เลือกตอนเบิกน้ำมันรถ · นับ กม./ลิตร แยกรายคัน</span></h3>
         {edit ? <div className="acts"><button className="btn sm" type="button" onClick={() => { setL((x) => [...x, { plate: "", name: "", fuel_type: "ดีเซล", active: true }]); setDirty(true); }}>+ เพิ่มรถ</button><button className="btn sm pr" type="button" disabled={busy || !dirty} onClick={save}>บันทึกรถ</button></div> : null}</div>
-      {L.length ? <table className="tb"><tbody>
+      {L.length ? <div className="tscroll"><table className="tb"><tbody>
         <tr><th style={{ width: "22%" }}>ทะเบียน</th><th>ชื่อเรียก</th><th style={{ width: "20%" }}>ชนิดน้ำมัน</th><th style={{ width: "14%" }}>สถานะ</th><th className="n" style={{ width: "12%" }}>เบิกน้ำมัน</th><th style={{ width: 60 }} /></tr>
         {L.map((c, i) => edit ? (
           <tr key={c.id ?? "n" + i}>
@@ -425,7 +425,7 @@ function CarsCard({ cars, fuel, edit }: { cars: Car[]; fuel: Fuel[]; edit: boole
         ) : (
           <tr key={c.id ?? i}><td>{c.plate}</td><td>{c.name}</td><td>{c.fuel_type || "–"}</td><td>{c.active ? "ใช้งาน" : "เลิกใช้"}</td><td className="n small muted">{used(c.id)} ครั้ง</td><td /></tr>
         ))}
-      </tbody></table> : <div className="cb small muted">ยังไม่มีรถ{edit ? " กด + เพิ่มรถ แล้วใส่ทะเบียน" : ""}</div>}
+      </tbody></table></div> : <div className="cb small muted">ยังไม่มีรถ{edit ? " กด + เพิ่มรถ แล้วใส่ทะเบียน" : ""}</div>}
     </div>
   );
 }
