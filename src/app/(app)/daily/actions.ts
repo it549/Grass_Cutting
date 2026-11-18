@@ -78,6 +78,56 @@ export async function addCrew(name: string, wage?: number | string): Promise<R &
   return { id, wage: c?.wage == null ? null : Number(c.wage) };
 }
 
+/**
+ * เอาคนงานออกจากบันทึกรายวัน (ปุ่ม ✕ ในรายชื่อใครมาทำงาน)
+ * · เอาออกจากบันทึกของวันนั้น
+ * · ไม่เคยมีประวัติ (มาทำงานวันอื่น จ่ายค่าแรง เบิก) → ลบออกจากทะเบียนเลย (เช่น เพิ่มผิด/พิมพ์ชื่อผิด)
+ * · มีประวัติแล้ว → พักงาน ไม่ขึ้นในบันทึกวันใหม่ ประวัติยังอยู่ครบ (เฉพาะบัญชี/เจ้าของ)
+ */
+export async function removeDailyCrew(date: string, crewId: string): Promise<R & { mode?: "deleted" | "inactive" }> {
+  const { company, perm } = await requireCompany();
+  if (!perm.daily) return { error: "ไม่มีสิทธิ์แก้บันทึกรายวัน" };
+  if (!isDate(date)) return { error: "วันที่ไม่ถูกต้อง" };
+  if (!isUuid(crewId)) return { error: "ไม่พบคนงาน" };
+  try {
+    const [k] = await sql<{ name: string }[]>`select name from crew where id = ${crewId} and company_id = ${company.id}`;
+    if (!k) return { error: "ไม่พบคนงาน" };
+    const d = new Date(date + "T00:00:00Z"), dow = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() - (dow - 1));
+    const ws = d.toISOString().slice(0, 10);
+    const [paidNow] = await sql`select 1 from crew_pays where company_id = ${company.id} and week_start = ${ws} and crew_id = ${crewId}`;
+    if (paidNow) return { error: `${k.name} จ่ายค่าแรงสัปดาห์นี้แล้ว ยกเลิกการจ่ายในหน้าคนงานและค่าแรงก่อน` };
+
+    const me = sql.json([{ id: crewId, on: true }]);
+    const [worked] = await sql`select 1 from daily_logs where company_id = ${company.id} and log_date <> ${date} and crew @> ${me} limit 1`;
+    const [paid] = await sql`select 1 from crew_pays where company_id = ${company.id} and crew_id = ${crewId} limit 1`;
+    const [adv] = await sql`select 1 from crew_advances where company_id = ${company.id} and crew_id = ${crewId} limit 1`;
+    const hist = Boolean(worked || paid || adv);
+    if (hist && !perm.wages) return { error: `${k.name} มีประวัติทำงานแล้ว ให้ฝ่ายบัญชีกดลบ (ระบบจะพักงานไว้) หรือตั้งพักงานในทะเบียนคนงาน` };
+
+    await sql.begin(async (tx) => {
+      await tx`
+        update daily_logs set crew = coalesce((select jsonb_agg(e) from jsonb_array_elements(crew) e where e->>'id' is distinct from ${crewId}), '[]'::jsonb)
+        where company_id = ${company.id} and log_date = ${date}
+      `;
+      if (hist) await tx`update crew set active = false where id = ${crewId} and company_id = ${company.id}`;
+      else {
+        // ยังไม่เคยมาทำงาน: เอาออกจากบันทึกทุกวัน (ที่ติ๊กไม่มา) แล้วลบออกจากทะเบียน
+        const ref = sql.json([{ id: crewId }]);
+        await tx`
+          update daily_logs set crew = coalesce((select jsonb_agg(e) from jsonb_array_elements(crew) e where e->>'id' is distinct from ${crewId}), '[]'::jsonb)
+          where company_id = ${company.id} and crew @> ${ref}
+        `;
+        await tx`delete from crew where id = ${crewId} and company_id = ${company.id}`;
+      }
+    });
+    revalidatePath("/", "layout");
+    return { mode: hist ? "inactive" : "deleted" };
+  } catch (e) {
+    return { error: msg(e) };
+  }
+}
+
 /** เบิกล่วงหน้า */
 export async function saveAdvance(a: { crew_id: string; date: string; amt: number | string; note?: string }): Promise<R> {
   const { userId, company, perm } = await requireCompany();

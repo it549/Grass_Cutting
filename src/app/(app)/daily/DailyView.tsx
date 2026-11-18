@@ -11,7 +11,7 @@ import {
   type Advance, type Car, type CrewDay, type CrewRec, type DayRec, type Fuel, type Order, type Route, type World,
   FK, WD, WDL, addDaysIso, cNorm, dS, dShort, dayN, fmt0, fmtKm, fmtN, num, payOf, rInfo, unitOf, wdOf, weekOf, workIndex,
 } from "@/lib/model";
-import { addCrew, deleteAdvance, deleteDaily, saveAdvance, saveDaily } from "./actions";
+import { addCrew, deleteAdvance, deleteDaily, removeDailyCrew, saveAdvance, saveDaily } from "./actions";
 
 type Can = { edit: boolean; wages: boolean; fuel: boolean };
 type W2 = { r: string; km: string; fin?: boolean };
@@ -149,6 +149,27 @@ export function DailyView({ W, day, today, week, prev, crew, paid, adv, fuel, ca
     toast("ก๊อปคนงานและสายที่ยังไม่จบจากวันที่ " + dS(prev.date) + " แล้ว แก้เฉพาะที่ต่างได้เลย");
   };
   const onN = D.crew.filter((x) => x.on && !x.half).length;
+  // ลบชื่อคนงาน: กด ✕ สองครั้ง · คนที่ไม่มี id (ชื่อพิมพ์เองแบบเดิม) เอาออกจากวันนี้อย่างเดียว
+  const [rmArm, setRmArm] = useState<string | null>(null);
+  const [rmBusy, setRmBusy] = useState(false);
+  const rmKey = (x: CrewDay) => x.id || "n:" + x.name;
+  const rmCrew = async (x: CrewDay) => {
+    if (isPaid(x.id)) { toast(`${x.name} จ่ายค่าแรงสัปดาห์นี้แล้ว ยกเลิกการจ่ายในหน้าคนงานและค่าแรงก่อน`, true); return; }
+    const k = rmKey(x);
+    if (rmArm !== k) { setRmArm(k); toast(`กด ✕ อีกครั้งเพื่อลบ ${x.name || "(ไม่มีชื่อ)"} ออกจากรายชื่อ`); return; }
+    setRmArm(null);
+    const drop = (d: D) => { d.crew = d.crew.filter((c) => rmKey(c) !== k); return d; };
+    if (!x.id) { change(drop, true); return; }
+    setRmBusy(true);
+    await flush();
+    const r = await removeDailyCrew(day, x.id);
+    setRmBusy(false);
+    if (r.error) { toast(r.error, true); return; }
+    const n = drop(structuredClone(Dref.current));
+    Dref.current = n; setD(n);
+    toast(r.mode === "inactive" ? `ลบ ${x.name} ออกจากรายชื่อแล้ว (พักงานไว้ ประวัติยังอยู่ครบ เปิดใหม่ได้ที่ทะเบียนคนงาน)` : `ลบ ${x.name} ออกจากทะเบียนแล้ว`);
+    router.refresh();
+  };
 
   // ---------- สาย ----------
   const [q, setQ] = useState("");
@@ -214,7 +235,7 @@ export function DailyView({ W, day, today, week, prev, crew, paid, adv, fuel, ca
             const R = crewOf(x.id), lock = isPaid(x.id), s = !x.on ? "n" : x.half ? "h" : "y";
             const sub = [R?.nick, R?.role].filter(Boolean).join(" · ");
             return (
-              <div key={x.id || x.name} className={"crw" + (lock ? " lock" : "")}>
+              <div key={x.id || x.name} className={"crw" + (lock ? " lock" : "") + (ro ? "" : " ed")}>
                 <div className="av">{dInit(x.name)}</div>
                 <div className="nm"><b>{x.name || "(ไม่มีชื่อ)"}</b><small>{lock ? "จ่ายแล้ว · " : ""}{sub ? sub + (can.wages ? " · " : "") : ""}{can.wages ? fmt0(num(x.wage)) + "/วัน" : !sub && !lock ? " " : ""}</small></div>
                 <div className="seg">{([["y", "มา"], ["h", "ครึ่งวัน"], ["n", "ไม่มา"]] as const).map(([k, t]) => (
@@ -223,6 +244,9 @@ export function DailyView({ W, day, today, week, prev, crew, paid, adv, fuel, ca
                 {can.wages ? <input className="in ot" value={x.on && x.ot ? String(x.ot) : ""} placeholder="OT" title="OT / เบี้ยเลี้ยง (บาท)" disabled={!x.on || lock || ro}
                   onChange={(e) => { const v = e.target.value; change((d) => { d.crew[i].ot = num(v); return d; }); }} /> : <span />}
                 <div className={"amt" + (x.on ? "" : " z")}>{can.wages ? (x.on ? fmt0(payOf(x)) : "–") : x.on ? (x.half ? "½" : "✓") : "–"}</div>
+                {ro ? null : <button type="button" className={"rm" + (rmArm === rmKey(x) ? " arm" : "")} disabled={lock || rmBusy}
+                  title={lock ? "จ่ายค่าแรงแล้ว ลบไม่ได้" : rmArm === rmKey(x) ? "กดอีกครั้งเพื่อยืนยันลบ" : "ลบชื่อออกจากรายชื่อ"}
+                  onBlur={() => setRmArm((v) => (v === rmKey(x) ? null : v))} onClick={() => rmCrew(x)}>✕</button>}
               </div>
             );
           })}
