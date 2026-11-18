@@ -329,7 +329,7 @@ export function RouteView({ companyId, o, r, x, A, G, photos, days, nav, can }: 
         <div className="card rp-days">
           <div className="ch"><h3>วันที่เข้าตัด <span className="m">{days.length} วัน</span></h3></div>
           {days.length ? (
-            <table className="tb">
+            <div className="tscroll"><table className="tb">
               <thead><tr><th>วันที่</th><th className="n">ตัด (กม.)</th><th className="n">คนงานทั้งวัน</th></tr></thead>
               <tbody>{days.map((d) => (
                 <tr key={d.date} className="click" onClick={() => router.push(`/daily?d=${d.date}`)}>
@@ -338,7 +338,7 @@ export function RouteView({ companyId, o, r, x, A, G, photos, days, nav, can }: 
                   <td className="n num">{fmtN(d.crew)} คน</td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></div>
           ) : <div className="emp">ยังไม่มีบันทึกรายวันของสายนี้</div>}
           <div className="cf">
             <span className="small muted">{G ? "ความยาวสายเก็บที่ทะเบียนสายทาง ใช้ทุกงวด" : "สายนี้ยังไม่อยู่ในทะเบียนสายทาง"}</span>

@@ -1,0 +1,172 @@
+/* จอเล็ก: แท็บเล็ต (≤900px) และมือถือ (≤640px)
+   ใช้ @media screen เท่านั้น — ไม่กระทบงานพิมพ์/PDF และหน้าจอเดสก์ท็อป (>900px) หน้าตาเหมือนเดิม */
+
+/* ตารางกว้าง: เลื่อนซ้ายขวาในกล่องตัวเอง (ใช้ได้ทุกขนาดจอ ถ้าไม่ล้นก็ไม่มีแถบเลื่อน) */
+.tscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sbtog { display: none; }
+
+/* ฟอร์มสองคอลัมน์ (globals .grid2): ไม่ให้ช่องกรอกดันคอลัมน์จนล้นการ์ด — ถ้าที่พอ หน้าตาเท่าเดิม */
+.grid2, .ax .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.grid2 > * { min-width: 0; }
+.grid2 input:not([type=checkbox]):not([type=radio]):not([type=file]), .grid2 select, .grid2 textarea { min-width: 0; max-width: 100%; }
+
+/* บันทึกรายวัน 3 คอลัมน์ต้องกว้าง ~1280px (รวมเมนูซ้าย) แถวคนงานถึงจะไม่บีบ
+   แคบกว่านั้น: การ์ด 1 (คนงาน) เต็มแถว ให้แถวคนงานยังเป็นบรรทัดเดียวพร้อมปุ่ม ✕ · การ์ด 2 กับสรุปอยู่คู่กันข้างล่าง */
+@media screen and (max-width: 1279px) {
+  .ax .d3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ax .d3 > .dcard:first-child { grid-column: 1 / -1; }
+  .ax .dcard .dh, .ax .dfoot { flex-wrap: wrap; }
+}
+
+/* จอแคบกว่าเดสก์ท็อปเต็ม (≤1100px รวมเมนูซ้าย) */
+@media screen and (max-width: 1100px) {
+  /* ตั้งค่าบริษัท: ตัวอย่างหัวกระดาษลงไปอยู่ใต้ฟอร์ม */
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .two .paper { max-width: 560px; }
+}
+
+@media screen and (max-width: 900px) {
+  /* โครงหน้า: เมนูซ้ายกลายเป็นแถบหัวบนสุด กด ☰ เปิดเมนูเต็มจอ */
+  #app { display: block; height: auto; min-height: 100vh; }
+  .main { height: auto; overflow: visible; }
+  .sb { position: sticky; top: 0; z-index: 45; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+  .sb:not(.open) > :not(.brand) { display: none; }
+  .sb.open { position: fixed; inset: 0; overflow: auto; padding-bottom: 24px; }
+  .brand { padding: 0; }
+  .brand > div { flex: 1; min-width: 0; }
+  .brand small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb.open .brand { padding-bottom: 12px; }
+  .sbtog { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: 20px; color: var(--ink); flex: none; }
+  .mi { padding: 11px 12px; font-size: 15px; }
+
+  /* ระยะขอบหน้า */
+  .pad { padding: 16px 16px 32px; }
+  .ax .top { padding: 16px 16px 12px; gap: 12px; }
+  .ax .body { padding: 0 16px 32px; }
+  .ax .pad { padding: 16px; }
+  .ax .hd { flex-wrap: wrap; }
+
+  /* กริดหลายคอลัมน์ → น้อยลง */
+  .ax .g3, .ax .g2r, .ax .rp-main, .dgrid { grid-template-columns: minmax(0, 1fr); }
+  .ax .rp-side { border-left: 0; border-top: 1px solid var(--line2); }
+  .ax .rp-grid { max-height: none; }
+  .hc { grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); }
+  .ax .tree { padding: 4px 0; }
+
+  /* ตัวแก้เอกสาร: ฟอร์มบน ตัวอย่างล่าง เลื่อนทั้งหน้า */
+  .edwrap { height: auto; }
+  .ed, .ax .ed { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .ed .form, .ax .ed .form { overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px 16px 24px; }
+  .ed .prev, .ax .ed .prev { overflow: visible; padding: 12px; }
+  .edbar { top: 58px; }
+
+  /* กล่องโต้ตอบ */
+  .ax .dlg { padding: 24px 12px; }
+  .ax .db { max-height: none; }
+
+  /* ช่องกรอกไม่ล้นกล่อง */
+  .ax .in, .ax select, .ax input { max-width: 100%; }
+  .ax .wfil, .ax .selbar, .ax .dfoot, .ax .rw2 .l2, .ax .dhd, .ax .dft, .logo-row { flex-wrap: wrap; }
+  .ax .rpop { max-width: calc(100vw - 24px); }
+  .tabs { overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { flex: none; }
+}
+
+/* จอสัมผัส (ไม่มีเมาส์ชี้): ปุ่มที่เดิมโผล่ตอนชี้เมาส์ ให้เห็นตลอด */
+@media screen and (hover: none) {
+  .ax .rp-ti .x { display: block; width: 24px; height: 24px; line-height: 22px; }
+}
+/* นิ้วกด (แท็บเล็ต/มือถือ): ปุ่มเล็ก ๆ ให้ใหญ่ขึ้น */
+@media screen and (pointer: coarse) {
+  .ax .crw.ed { grid-template-columns: 30px minmax(0, 1fr) 150px 54px 48px 34px; }
+  .ax .crw .rm { width: 34px; height: 34px; font-size: 15px; }
+  .ax .seg button { padding: 7px 0; }
+  .ax .btn.sm, .btn.sm { min-height: 34px; }
+  .ax .dlg .dh .x { width: 40px; height: 40px; }
+  .ax .rw2 .x { min-width: 32px; min-height: 32px; }
+}
+
+@media screen and (max-width: 640px) {
+  .ax .top h1 { font-size: 20px; }
+  .ax .top > div:first-child { flex: 1 1 100%; }
+  .ax .top .acts { flex: 1 1 100%; }
+  .hd h2, .ax .hd h2 { font-size: 20px; }
+
+  /* กริด → คอลัมน์เดียว / สองคอลัมน์ */
+  .ax .d3, .ax .row2, .ax .dayg, .ax .drops, .drops, .grid3, .ax .grid3, .ax .addrow, .ax .bzsum { grid-template-columns: minmax(0, 1fr); }
+  .ax .d3 > .dside { grid-template-columns: minmax(0, 1fr); }
+  .ax .stats, .ax .kp, .kp, .kp4, .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid4 .span2, .grid4 .span3, .grid4 .span4 { grid-column: 1 / -1; }
+  .ax .st .v, .k .v { font-size: 21px; }
+  .ax .pkg { grid-template-columns: minmax(0, 1fr); }
+  .ax .pkg label.pr { border-right: 0; }
+  .ax #nModes { grid-template-columns: minmax(0, 1fr); }
+  .ax .pktop .in { width: 100%; }
+  .ax .gg2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ax .gt2 { width: auto; min-width: 0; }
+  .ax .rpop { position: fixed; left: 12px !important; right: 12px !important; top: 72px; max-height: calc(100vh - 96px); overflow: auto; }
+  .ax .wk { gap: 4px; }
+  .ax .wk button { padding: 6px 4px; text-align: center; font-size: 11px; }
+  .ax .wk b { font-size: 15px; }
+  .ax .ch, .ax .cb, .ax .cf { padding-left: 14px; padding-right: 14px; }
+  .ax .tb th, .ax .t th, .ax .tb td, .ax .t td { padding-left: 12px; padding-right: 12px; }
+  .ax .ch .in { width: 100% !important; }
+  .auth-card { padding: 24px 20px; }
+
+  /* ฟอร์มสองคอลัมน์ → คอลัมน์เดียว (ช่องที่สั่ง span ไว้ก็ให้เต็มแถว) */
+  .ax .grid2, .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .ax .grid2 > *, .grid2 > * { grid-column: 1 / -1 !important; }
+
+  /* ปุ่ม/ช่องกรอกให้กดง่ายบนจอสัมผัส (ฟอนต์ 16px กัน iOS ซูมเข้าเองเวลาแตะช่อง) */
+  .btn, .ax .btn { min-height: 40px; }
+  .btn.sm, .ax .btn.sm { min-height: 34px; padding: 6px 12px; }
+  .ax .btn.xs { min-height: 30px; padding: 4px 10px; }
+  .ax .in, .ax input:not([type=checkbox]):not([type=radio]):not([type=file]), .ax select, .ax textarea,
+  input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea { font-size: 16px; }
+  .ax .in, .ax select.in { min-height: 40px; }
+  .ax .tabs button, .ax .tabs a { padding: 8px 13px; }
+  .ax .lnk, .link { min-height: 32px; }
+
+  /* บันทึกรายวัน: แถบเลือกวันเต็มความกว้าง */
+  .ax .dwk { width: 100%; gap: 4px; }
+  .ax .dwk .dd { flex: 1 1 0; width: auto; min-width: 0; }
+  .ax .dwk .ar, .ax .dwk .cal { width: 30px; flex: none; }
+
+  /* บันทึกรายวัน: แถวคนงานเป็นสองบรรทัด — ชื่อ/ยอด/ลบ บน · มา-ครึ่ง-ไม่มา/OT ล่าง */
+  .ax .crw { grid-template-columns: 34px minmax(0, 1fr) 64px 64px; grid-template-areas: "av nm nm amt" "av seg seg ot"; row-gap: 8px; padding: 10px 14px; }
+  .ax .crw.ed { grid-template-columns: 34px minmax(0, 1fr) 64px 64px 36px; grid-template-areas: "av nm nm amt rm" "av seg seg ot ot"; }
+  .ax .crw > .av { grid-area: av; align-self: start; }
+  .ax .crw > .nm { grid-area: nm; }
+  .ax .crw > .seg { grid-area: seg; }
+  .ax .crw > :nth-child(4) { grid-area: ot; }
+  .ax .crw > .amt { grid-area: amt; }
+  .ax .crw > .rm { grid-area: rm; justify-self: end; width: 36px; height: 36px; font-size: 15px; }
+  .ax .crw > .rm.arm { width: 32px; height: 32px; }
+  .ax .crw .ot { height: 38px; width: 100%; }
+  .ax .seg button { padding: 9px 0; font-size: 13px; }
+  .ax .crw.addf { grid-template-columns: 34px minmax(0, 1fr) auto auto; grid-template-areas: "av nm nm nm" ". wg bt cn"; }
+  .ax .crw.addf > :nth-child(2) { grid-area: nm; }
+  .ax .crw.addf > :nth-child(3) { grid-area: wg; }
+  .ax .crw.addf > :nth-child(4) { grid-area: bt; }
+  .ax .crw.addf > :nth-child(5) { grid-area: cn; }
+  .ax .rw2 .km { width: 76px; height: 38px; }
+  .ax .rw2 .x { width: 36px; height: 36px; }
+  .ax .fin { padding: 6px 12px 6px 7px; }
+  .ax .exin label { grid-template-columns: 100px minmax(0, 1fr); }
+  .ax .exin .in { height: 40px; }
+
+  /* ตัวแก้เอกสาร: แถวรายการ */
+  .itm .r, .ax .itm .r { grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .itm .r > .acts { grid-column: 1 / -1; justify-content: flex-end; }
+
+  /* กล่องโต้ตอบเกือบเต็มจอ */
+  .ax .dlg { padding: 8px; }
+  .ax .dlg .box { padding: 18px 16px; border-radius: 12px; }
+  .ax .dlg .box:has(> .dh) { padding: 0; }
+  .ax .dlg .dh { padding: 12px 16px; }
+  .ax .dlg .dh .x { width: 40px; height: 40px; }
+  .ax .db { padding: 14px 16px; }
+  .ax .df { padding: 12px 16px; flex-wrap: wrap; }
+  .ax .toast { max-width: calc(100vw - 24px); bottom: 16px; }
+}

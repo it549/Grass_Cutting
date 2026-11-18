@@ -82,7 +82,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
       <div className="two">
         <div className="card">
           <div className="serif h3">สมาชิกของ {company.name}</div>
-          <table className="tbl">
+          <div className="tscroll"><table className="tbl">
             <thead><tr><th style={{ width: "34%" }}>ชื่อ / อีเมล</th><th>บทบาท</th><th style={{ width: 70 }}></th></tr></thead>
             <tbody>
               {(mem ?? []).map((m) => {
@@ -120,7 +120,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
           <div className="small muted" style={{ marginTop: 12 }}>
             {ROLES.map((r) => <div key={r} style={{ marginTop: 4 }}><b>{ROLE_LABEL[r]}</b> · {ROLE_HELP[r]}</div>)}
             <div style={{ marginTop: 8 }}>คนเดียวมีได้หลายบทบาท ระบบล็อกสิทธิ์ที่ฐานข้อมูลด้วย ไม่ใช่แค่ซ่อนปุ่ม</div>

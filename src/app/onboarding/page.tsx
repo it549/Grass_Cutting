@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getContext } from "@/lib/context";
+import { canCreateCompany, NO_CREATE_MSG } from "@/lib/data/company";
 import { createCompany } from "./actions";
 
 export const metadata = { title: "สร้างบริษัท · งานตัดหญ้า" };
@@ -8,6 +10,20 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
   const { msg, add } = await searchParams;
   const ctx = await getContext();
   if (ctx.memberships.length && !add) redirect("/");
+  if (!(await canCreateCompany(ctx.userId, ctx.email))) {
+    return (
+      <main className="auth">
+        <div className="auth-card">
+          <h1 className="serif">สร้างบริษัทไม่ได้</h1>
+          <p className="alert">{NO_CREATE_MSG}</p>
+          {ctx.memberships.length ? <p><Link href="/">← กลับไปที่บริษัท {ctx.active?.company.name}</Link></p>
+            : <p className="muted">มีคำเชิญเข้าบริษัทรออยู่ ออกจากระบบแล้วเข้าสู่ระบบใหม่ ระบบจะพาเข้าบริษัทนั้นเอง</p>}
+          <p className="small muted" style={{ marginTop: 18 }}>เข้าสู่ระบบอยู่ในชื่อ {ctx.email}</p>
+          <form action="/auth/signout" method="post"><button className="link" type="submit">ออกจากระบบ</button></form>
+        </div>
+      </main>
+    );
+  }
   return (
     <main className="auth">
       <div className="auth-card">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, use } from "react";
+import { Suspense, use, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Badges } from "@/lib/badges";
 
@@ -46,10 +46,14 @@ function Badge({ p, k }: { p: Promise<Badges>; k: keyof Badges }) {
 /** แถบเมนูซ้าย แบบเดียวกับระบบบน claude.ai */
 export function Sidebar({ can, company, footer, badges }: { can: NavCan; company: string; footer: React.ReactNode; badges: Promise<Badges> }) {
   const path = usePathname();
+  const [open, setOpen] = useState(false);
   const initial = (company || "ณ").replace(/^บริษัท\s*/, "").slice(0, 1);
   return (
-    <nav className="sb">
-      <div className="brand"><i>{initial}</i><div><b>งานตัดหญ้า</b><small>{company}</small></div></div>
+    // จอเล็ก: เหลือแถบหัวบนสุด กด ☰ เพื่อเปิดเมนูเต็มจอ (กดลิงก์แล้วปิดเอง)
+    <nav className={"sb" + (open ? " open" : "")} onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setOpen(false); }}>
+      <div className="brand"><i>{initial}</i><div><b>งานตัดหญ้า</b><small>{company}</small></div>
+        <button type="button" className="sbtog" aria-label={open ? "ปิดเมนู" : "เปิดเมนู"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "✕" : "☰"}</button>
+      </div>
       {NAV.filter((it) => !it.show || can[it.show]).map((it) => {
         if ("group" in it) return <div key={it.group} className="grp">{it.group}</div>;
         const on = it.match ? it.match.split("|").some((m) => path.startsWith(m)) : path === it.href;

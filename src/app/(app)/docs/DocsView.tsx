@@ -75,7 +75,7 @@ export function DocsView({ W, k, agSel, docs, tab, flash, can }: {
         <Top crumb={<>สำนักงาน › <b>เอกสาร</b></>} title="ทะเบียนเอกสาร" sub="เอกสารทุกใบทุกงวด ทุกแขวง" acts={tabs} />
         <div className="body"><div className="card">
           {L.length ? (
-            <table className="tb">
+            <div className="tscroll"><table className="tb">
               <thead><tr><th>เลขที่</th><th>ประเภท</th><th>งวด / หมวด</th><th>อ้างอิงใบสั่งจ้าง</th><th>วันที่</th><th className="n">จำนวนเงิน</th><th>สถานะ</th></tr></thead>
               <tbody>
                 {L.map((d) => {
@@ -93,7 +93,7 @@ export function DocsView({ W, k, agSel, docs, tab, flash, can }: {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           ) : <div className="emp">ยังไม่มีเอกสาร</div>}
         </div></div>
       </div></div>
@@ -177,7 +177,7 @@ export function DocsView({ W, k, agSel, docs, tab, flash, can }: {
           <Stat l="รอดำเนินการ" v={todo.length} u="รายการ" />
         </div>
         <div className="card">
-          <table className="tb board">
+          <div className="tscroll"><table className="tb board">
             <thead><tr><th style={{ width: "15%" }}>หมวด</th><th>1. ใบสั่งจ้าง</th><th>2. ใบเสนอราคา</th><th>3. หนังสือส่งมอบ</th><th>4. ใบกำกับภาษี / ใบเสร็จ</th></tr></thead>
             <tbody>
               {slots.map(({ h, o }) => {
@@ -226,7 +226,7 @@ export function DocsView({ W, k, agSel, docs, tab, flash, can }: {
                 <td><b>{nd("rc")}/{S3}</b>{billed ? <span className="muted small"> · {fmt0(billed)} บาท</span> : null}</td>
               </tr>
             </tbody>
-          </table>
+          </table></div>
         </div>
         <div className="hint">ⓘ อัปโหลดใบสั่งจ้างแล้ว Claude จะอ่านและจับคู่กับสายในแผนให้ ถ้ามีสายที่ไม่ตรงกับแผนจะเตือนก่อนบันทึก</div>
       </div>

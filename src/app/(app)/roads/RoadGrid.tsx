@@ -162,7 +162,7 @@ export function RoadGrid({ W, A, hmd, mode, can, onClose, onSaved }: {
               : `พิมพ์แค่เลขสาย เช่น 3083 ระบบเติม ${pre || "รหัสจังหวัด"} ให้ · ก๊อปหลายแถวจาก Excel มาวางได้`}
         </span></div>
       </div>
-      <table className="tb rgt" style={{ marginTop: 14 }}>
+      <div className="tscroll"><table className="tb rgt" style={{ marginTop: 14 }}>
         <colgroup><col style={{ width: 36 }} /><col style={{ width: 150 }} /><col /><col style={{ width: 150 }} /><col style={{ width: 96 }} />{edit ? <col style={{ width: 170 }} /> : null}<col style={{ width: 150 }} /><col style={{ width: 34 }} /></colgroup>
         <thead><tr><th>#</th><th>เลขสาย</th><th>ชื่อสาย</th><th>อำเภอ</th><th className="n">กม.</th>{edit ? <th>ลิงก์ Google Maps</th> : null}<th>{edit ? "หมวด" : ""}</th><th></th></tr></thead>
         <tbody ref={body}>
@@ -193,7 +193,7 @@ export function RoadGrid({ W, A, hmd, mode, can, onClose, onSaved }: {
             );
           })}
         </tbody>
-      </table>
+      </table></div>
       {edit ? null : (
         <div className="acts" style={{ marginTop: 10 }}>
           <span className="small muted">เพิ่ม</span>

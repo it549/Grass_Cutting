@@ -209,7 +209,7 @@ export function OrderEditor({
           <div className="serif h3">สายทาง ({rows.filter((r) => r.code || r.descr).length} สาย)</div>
           {!ro && <span className="small muted">วางจาก Excel ได้: รหัส | ชื่อสาย | พื้นที่ | ราคา</span>}
         </div>
-        <table className="tbl rt">
+        <div className="tscroll"><table className="tbl rt">
           <thead>
             <tr><th style={{ width: 40 }}>#</th><th style={{ width: 120 }}>รหัสสายทาง</th><th>ชื่อสายทาง</th><th style={{ width: 120 }} className="n">พื้นที่ (ตร.ม.)</th><th style={{ width: 100 }} className="n">ราคา/ตร.ม.</th><th style={{ width: 130 }} className="n">จำนวนเงิน</th>{showInPo && <th style={{ width: 96 }} className="c">ในใบสั่งจ้าง</th>}{!ro && <th style={{ width: 36 }} />}</tr>
           </thead>
@@ -230,7 +230,7 @@ export function OrderEditor({
           <tfoot>
             <tr><td /><td colSpan={2}>{!ro && <button type="button" className="link" onClick={() => setRows((rs) => [...rs, toRow({ rate: rs[rs.length - 1]?.rate ?? "" })])}>+ เพิ่มสายทาง</button>}</td><td className="n"><b>{fmt0(t.area)}</b></td><td /><td className="n"><b>{fmt(t.sum)}</b></td>{showInPo && <td />}{!ro && <td />}</tr>
           </tfoot>
-        </table>
+        </table></div>
         <div className="sumbox">
           <div><span>มูลค่าก่อนภาษี</span><span>{fmt(t.pre)}</span></div>
           <div><span>ภาษีมูลค่าเพิ่ม 7%</span><span>{fmt(t.vat)}</span></div>

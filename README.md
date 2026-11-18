@@ -43,11 +43,12 @@ npm run start                # http://localhost:3004 — โหมดโปร�
 
 รันไว้เบื้องหลังตลอดเวลาด้วย [pm2](https://pm2.keymetrics.io/) (กันไม่ให้ดับตอนปิดหน้าต่าง/restart เครื่อง):
 ```bash
-npm install -g pm2
-pm2 start npm --name grass-cutting -- run start
+npm install -g pm2 pm2-windows-startup
+pm2 start node_modules\next\dist\bin\next --name grass-cutting --interpreter node -- start -p 3004
 pm2 save
-pm2 startup                  # ทำตามคำสั่งที่ขึ้นมา เพื่อให้ pm2 สตาร์ทเองตอนเปิดเครื่อง
+pm2-startup install          # ให้ pm2 เปิดเว็บเองตอนล็อกอินเครื่อง (Windows)
 ```
+(บน Windows ใช้ `pm2 start npm ...` ไม่ได้ เพราะ npm เป็นไฟล์ .cmd จึงเรียก next ตรงๆ แทน)
 
 ## ขั้นที่ 4 · เปิดให้เข้าถึงจากอินเทอร์เน็ตด้วย Cloudflare Tunnel
 
@@ -143,6 +144,39 @@ pm2 startup                  # ทำตามคำสั่งที่ขึ�
   - ใบกำกับภาษีที่ออกแล้วแก้ไม่ได้ ต้อง **ยกเลิกเอกสาร** (ใส่เหตุผล) แล้วกด **ทำฉบับใหม่จากใบนี้** · ลบได้เฉพาะฉบับร่าง
 - **PDF** รายงานภาพถ่ายต่อสาย (แบบ ก่อน/หลัง 500 ม. และแบบสำรวจ 250 ม.) · ใบสรุปงวด · ชุดส่งงวด (สรุป + รูปทุกสาย)
 - **ตั้งค่า → ย้ายข้อมูล** (เฉพาะเจ้าของ) นำเข้าไฟล์ที่ส่งออกจากระบบเดิม (.json หรือ .zip ที่มี data.json + โฟลเดอร์ photos) รวมรูปที่วางช่องไว้แล้ว กดซ้ำได้ ของที่มีอยู่แล้วจะถูกข้าม
+
+---
+
+## ย้ายไปเครื่องอื่น
+
+มีสคริปต์ใน `scripts\move\` (Windows) ย้ายฐานข้อมูล ไฟล์แนบใน `storage\` และ `.env` ให้ครบ
+
+**เครื่องเดิม** (ในโฟลเดอร์โปรเจกต์) — หยุดเว็บ (pm2) แล้วสร้างโฟลเดอร์ `move-package` ที่มี `grass_cutting.dump`, `storage.zip`, `.env`, `manifest.txt`
+```bash
+scripts\move\export-data.cmd
+```
+คัดลอกโฟลเดอร์ `move-package` ไปเครื่องใหม่ (มีรหัสผ่านใน `.env` ห้ามส่งในแชตหรืออัปขึ้นที่สาธารณะ)
+
+**เครื่องใหม่** — ติดตั้งโปรแกรม แล้ว clone โปรเจกต์
+```bash
+winget install OpenJS.NodeJS.LTS Git.Git PostgreSQL.PostgreSQL.18 Cloudflare.cloudflared
+```
+```bash
+git clone https://github.com/it549/Grass_Cutting.git grass-cutting
+```
+ถ้ารหัสของ user `postgres` บนเครื่องใหม่ต่างจากเดิม ให้วาง `.env` ไว้ในโฟลเดอร์ `grass-cutting` แล้วแก้ `DATABASE_URL` ก่อน จากนั้นรัน (ใน cmd แบบ Run as administrator ถ้าจะให้ติดตั้ง tunnel ด้วย):
+```bash
+scripts\move\import-data.cmd -From D:\move-package -TunnelToken <token จาก Cloudflare One → Networks → Tunnels>
+```
+สคริปต์จะ restore ฐานข้อมูล อัปเดต schema เทียบจำนวนแถวกับเครื่องเดิม แตกไฟล์แนบ build และรันเว็บด้วย pm2 ที่พอร์ต 3004 · ถ้าเครื่องใหม่มีข้อมูลอยู่แล้วจะหยุดก่อน (ใส่ `-Force` ถ้าตั้งใจทับ) · ไม่ใส่ `-TunnelToken` ก็ได้ แล้วติดตั้ง tunnel เองทีหลัง
+
+**เสร็จแล้ว** ถอน tunnel และหยุดเว็บบนเครื่องเดิม ไม่อย่างนั้น Cloudflare อาจส่งผู้ใช้ไปเครื่องเก่า:
+```bash
+cloudflared service uninstall
+```
+```bash
+pm2 delete grass-cutting
+```
 
 ---
 

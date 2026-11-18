@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <CompanySwitcher current={company.id} options={memberships.map((m) => ({ id: m.company.id, name: m.company.name }))} />
             <div className="small muted" style={{ wordBreak: "break-all" }}>{email}</div>
             <div className="small muted">{roleText(roles)}</div>
-            <Link className="small" href="/onboarding?add=1">+ สร้างบริษัทใหม่</Link>
+            {memberships.some((m) => m.roles.includes("owner")) ? <Link className="small" href="/onboarding?add=1">+ สร้างบริษัทใหม่</Link> : null}
           </>
         }
       />

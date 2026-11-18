@@ -101,7 +101,7 @@ export function WorkView({ W, k, agSel, focus, openNew, can }: {
             <button className="lnk small" type="button" onClick={() => setK(o.routes.map((r) => key(r.id)), false)}>ล้างที่เลือก</button>
           </div>
         ) : null}
-        <table className="tb">
+        <div className="tscroll"><table className="tb">
           <thead><tr>
             <th className="ck">{openR.length && can.daily ? <input type="checkbox" title="เลือกทุกสายที่ยังไม่เสร็จ" checked={openR.every(({ r }) => sel.has(key(r.id)))} onChange={(e) => setK(openR.map(({ r }) => key(r.id)), e.target.checked)} /> : null}</th>
             <th>สายทาง</th><th style={{ width: "20%" }}>ระยะที่ตัด (กม.)</th><th>วันที่ตัด</th><th>รูปก่อน / หลัง</th><th>สถานะ</th><th style={{ width: 118 }}></th>
@@ -128,7 +128,7 @@ export function WorkView({ W, k, agSel, focus, openNew, can }: {
               );
             }) : <tr><td colSpan={7} className="muted small" style={{ padding: "14px 18px" }}>ไม่มีสายในตัวกรองนี้</td></tr>}
           </tbody>
-        </table>
+        </table></div>
         <div className="cf">
           <span>{val ? <>มูลค่าตามใบสั่งจ้าง <b className="num">{fmt0(val)}</b> บาท</> : hasPo(o) ? `ใบสั่งจ้าง ${o.po_no}${o.po_date ? " ลงวันที่ " + dS(o.po_date) : ""}` : "ยอดเงินขึ้นเมื่อได้ใบสั่งจ้าง"}</span>
           {g.pics ? <PackButton className="btn sm gh" orderIds={[o.id]} mode="photos" label="PDF รายงานภาพถ่ายทั้งหมวด" filename={`รายงานภาพถ่าย-${o.hmd || ""}-${rkName(k)}`} /> : null}

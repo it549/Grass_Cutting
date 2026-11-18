@@ -179,6 +179,11 @@
 .ax .crw .amt.z{color:var(--mute2);font-weight:400}
 .ax .crw.lock{background:#fafbf9}
 .ax .crw.lock .seg{opacity:.6}
+.ax .crw.ed{grid-template-columns:30px minmax(0,1fr) 150px 54px 48px 22px}
+.ax .crw .rm{border:0;background:none;color:var(--mute2);cursor:pointer;font-size:13px;padding:0;height:24px;white-space:nowrap}
+.ax .crw .rm:hover:not(:disabled){color:var(--bad)}
+.ax .crw .rm:disabled{opacity:.35;cursor:default}
+.ax .crw .rm.arm{color:#fff;background:var(--bad);border-radius:50%;width:22px;height:22px}
 .ax .crw.addf{grid-template-columns:30px minmax(0,1fr) 80px auto auto}
 .ax .dfoot{display:flex;gap:8px;align-items:center;padding:9px 14px}
 .ax .dfoot .m{margin-left:auto}

@@ -120,7 +120,7 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
             <input className="in" placeholder="ค้นหาเลขสาย / ชื่อสาย / อำเภอ" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 240 }} />
           </div>
           {list.length ? (
-            <table className="tb">
+            <div className="tscroll"><table className="tb">
               <thead><tr><th>เลขสาย</th><th>ชื่อสาย</th><th>อำเภอ</th><th className="n">ความยาว</th>{qn ? <th>หมวด</th> : null}<th>ตัดล่าสุด</th></tr></thead>
               <tbody>
                 {list.map((g) => (
@@ -134,7 +134,7 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           ) : (
             <div className="emp">{qn ? "ไม่พบสายที่ค้นหา" : <>ยังไม่มีสายทางในหมวดนี้{can.edit ? <div style={{ marginTop: 12 }}><button className="btn pr" type="button" onClick={() => setDlg("add")}>+ เพิ่มสายทาง</button></div> : null}</>}</div>
           )}

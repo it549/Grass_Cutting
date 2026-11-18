@@ -123,10 +123,10 @@ export function PosView({ W, ag, docs, today, can }: { W: World; ag: string; doc
           </div>
           {ks.length ? (
             <>
-              <table className="tb mx">
+              <div className="tscroll"><table className="tb mx">
                 <thead><tr><th style={{ width: 92 }}>งวด</th>{hs.map((h) => <th key={h}>{h ? "หมวด" + h : "ไม่ระบุหมวด"}</th>)}<th className="n" style={{ width: 130 }}>รวมงวด</th></tr></thead>
                 <tbody>{rows.length ? rows : <tr><td colSpan={hs.length + 2} className="muted" style={{ padding: 18 }}>ไม่มีงวดที่ตรงกับตัวกรอง</td></tr>}</tbody>
-              </table>
+              </table></div>
               {hidden ? <div className="more"><button className="lnk" type="button" onClick={() => setMore(true)}>แสดงงวดที่ครบแล้วอีก {hidden} งวด ▾</button></div>
                 : more ? <div className="more"><button className="lnk" type="button" onClick={() => setMore(false)}>ซ่อนงวดเก่าที่ครบแล้ว ▴</button></div> : null}
               <div className="legend">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./ax.css";
 import "./print.css";
+import "./responsive.css";
 
 export const metadata: Metadata = {
   title: "งานตัดหญ้า",

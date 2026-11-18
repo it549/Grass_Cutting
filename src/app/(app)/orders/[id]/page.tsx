@@ -83,7 +83,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         {rs.length === 0 ? (
           <p className="small muted">ยังไม่มีสายทาง กรอกในส่วน “แก้ไขใบสั่งจ้าง” ด้านล่าง</p>
         ) : (
-          <table className="tbl">
+          <div className="tscroll"><table className="tbl">
             <thead><tr><th style={{ width: 40 }}>#</th><th style={{ width: 110 }}>สายทาง</th><th>ชื่อสายทาง</th><th className="n" style={{ width: 110 }}>พื้นที่</th>{perm.prices && <th className="n" style={{ width: 120 }}>จำนวนเงิน</th>}<th className="c" style={{ width: 90 }}>รูป ก่อน/หลัง</th><th className="n" style={{ width: 110 }}>ตัดแล้ว (กม.)</th><th style={{ width: 100 }}>สถานะ</th><th style={{ width: 110 }}>วันที่เสร็จ</th><th style={{ width: 70 }} /></tr></thead>
             <tbody>
               {rs.map(({ r, st }, i) => (
@@ -101,7 +101,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
