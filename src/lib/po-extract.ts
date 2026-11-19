@@ -1,6 +1,5 @@
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { extractWithAI, type AiFile } from "@/lib/ai-extract";
 import { z } from "zod";
 
 const PO = z.object({
@@ -30,33 +29,8 @@ const PROMPT = `เอกสารที่แนบคือ "ใบสั่�
 - ใส่ทุกสายทางในตาราง ตามลำดับในเอกสาร ห้ามข้ามแถว ตัวเลขไม่มีจุลภาค
 - ถ้าไม่พบข้อมูลใด ให้ใส่ค่าว่างตามที่กำหนด ห้ามเดา`;
 
-export type PoFile = { mediaType: string; base64: string };
+export type PoFile = AiFile;
 
 export async function extractPO(files: PoFile[]): Promise<ExtractedPO> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY ในหน้าตั้งค่าของเว็บ (ดู README)");
-  const client = new Anthropic({ apiKey });
-
-  const blocks: Anthropic.Beta.BetaContentBlockParam[] = files.map((f) =>
-    f.mediaType === "application/pdf"
-      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: f.base64 } }
-      : {
-          type: "image",
-          source: { type: "base64", media_type: f.mediaType as "image/jpeg" | "image/png" | "image/webp", data: f.base64 },
-        },
-  );
-
-  const res = await client.beta.messages.parse({
-    model: "claude-opus-5-5",
-    max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort: "medium", format: betaZodOutputFormat(PO) },
-    messages: [{ role: "user", content: [...blocks, { type: "text", text: PROMPT }] }],
-  });
-
-  if (res.stop_reason === "refusal") throw new Error("Claude ไม่สามารถอ่านเอกสารนี้ได้");
-  if (res.stop_reason === "max_tokens") throw new Error("เอกสารยาวเกินไป ลองแยกเป็นหลายไฟล์");
-  if (!res.parsed_output) throw new Error("อ่านผลลัพธ์ไม่สำเร็จ ลองใหม่อีกครั้ง");
-  return res.parsed_output;
+  return extractWithAI(PO, files, PROMPT);
 }

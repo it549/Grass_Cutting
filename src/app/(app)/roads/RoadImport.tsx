@@ -1,7 +1,7 @@
 "use client";
 
-// เพิ่มสายทางจากเอกสาร: วางข้อความ / แนบรูป / PDF → Claude อ่านและแยกหมวดตามหัวตาราง → ตรวจแล้วบันทึก
-import { useRef, useState } from "react";
+// เพิ่มสายทางจากเอกสาร: วางข้อความ / แนบรูป / PDF → AI อ่านและแยกหมวดตามหัวตาราง → ตรวจแล้วบันทึก
+import { useEffect, useRef, useState } from "react";
 import { Chip, Dialog, toast } from "@/components/ui";
 import { type Agency, type World, num, regFind } from "@/lib/model";
 import { shrink } from "@/lib/image";
@@ -12,7 +12,7 @@ type Row = { hmd: string; code: string; name: string; amp: string; len: string; 
 
 const normH = (h: string | null | undefined) => String(h || "").replace(/^หมวด(ฯ|บำรุงทางหลวงชนบท|บำรุงทาง)?\s*/, "").trim();
 
-/** อ่านแบบพื้นฐาน (ไม่ใช้ Claude): แถวจาก Excel หรือบรรทัด "ชบ.3083 ชื่อสาย 5.5" และหัวข้อ "หมวด…" */
+/** อ่านแบบพื้นฐาน (ไม่ใช้ AI): แถวจาก Excel หรือบรรทัด "ชบ.3083 ชื่อสาย 5.5" และหัวข้อ "หมวด…" */
 function localParse(t: string): In[] {
   let curH: string | null = null;
   const out: In[] = [];
@@ -31,12 +31,15 @@ function localParse(t: string): In[] {
   return out;
 }
 
-export function RoadImport({ W, A, hmd, canRead, onClose, onSaved }: {
+export function RoadImport({ W, A, hmd, canRead, onClose, onSaved, initFiles }: {
   W: World; A: Agency; hmd: string; canRead: boolean; onClose: () => void; onSaved: (h: string) => void;
+  /** แนบไฟล์มาแล้ว: เปิดหน้าต่างแล้วให้ AI อ่านทันที */
+  initFiles?: File[];
 }) {
   const [def, setDef] = useState(A.hmds.includes(hmd) ? hmd : A.hmds[0] ?? "");
   const [text, setText] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(initFiles ?? []);
+  const autoRan = useRef(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [extraH, setExtraH] = useState<string[]>([]);
   const [msg, setMsg] = useState<{ c: "ok" | "warn" | "bad"; t: string } | null>(null);
@@ -65,11 +68,11 @@ export function RoadImport({ W, A, hmd, canRead, onClose, onSaved }: {
     const t = text.trim();
     if (!t && !files.length) { toast("วางรายการหรือแนบรูปก่อน", true); return; }
     if (!canRead) {
-      if (t) { const by = setFrom(localParse(t)); setMsg({ c: "warn", t: `อ่านแบบพื้นฐาน (ยังไม่ได้ตั้งค่า Claude) · ${sep(by)} · ตรวจทุกช่องก่อนบันทึก` }); }
-      else setMsg({ c: "bad", t: "ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY จึงอ่านรูปไม่ได้ วางเป็นข้อความแทน" });
+      if (t) { const by = setFrom(localParse(t)); setMsg({ c: "warn", t: `อ่านแบบพื้นฐาน (ยังไม่ได้ตั้งค่า AI) · ${sep(by)} · ตรวจทุกช่องก่อนบันทึก` }); }
+      else setMsg({ c: "bad", t: "ยังไม่ได้ตั้งค่า GEMINI_API_KEY หรือ ANTHROPIC_API_KEY จึงอ่านรูปไม่ได้ วางเป็นข้อความแทน" });
       return;
     }
-    setBusy(true); setMsg({ c: "warn", t: "Claude กำลังอ่าน… ใช้เวลาประมาณ 20–60 วินาที" });
+    setBusy(true); setMsg({ c: "warn", t: "AI กำลังอ่าน… ใช้เวลาประมาณ 20–60 วินาที" });
     try {
       const fd = new FormData();
       fd.append("text", t);
@@ -85,11 +88,17 @@ export function RoadImport({ W, A, hmd, canRead, onClose, onSaved }: {
       setMsg({ c: "ok", t: `อ่านได้ ${rs.length} สาย · ${sep(by)} · ตรวจหมวดและแก้ได้ก่อนบันทึก` });
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e);
-      if (t) { const by = setFrom(localParse(t)); setMsg({ c: "warn", t: `Claude อ่านไม่สำเร็จ (${err}) ใช้การอ่านแบบพื้นฐานแทน · ${sep(by)} · ตรวจทุกช่องก่อนบันทึก` }); }
+      if (t) { const by = setFrom(localParse(t)); setMsg({ c: "warn", t: `AI อ่านไม่สำเร็จ (${err}) ใช้การอ่านแบบพื้นฐานแทน · ${sep(by)} · ตรวจทุกช่องก่อนบันทึก` }); }
       else setMsg({ c: "bad", t: err });
     }
     setBusy(false);
   };
+  useEffect(() => {
+    if (autoRan.current || !initFiles?.length) return;
+    autoRan.current = true;
+    void read();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const changeDef = (v: string) => { setDef(v); setRows((rs) => rs.map((r) => (r.fromDoc ? r : { ...r, hmd: v }))); };
   const upd = (i: number, p: Partial<Row>) => setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...p } : r)));
 
@@ -138,9 +147,9 @@ export function RoadImport({ W, A, hmd, canRead, onClose, onSaved }: {
         <input ref={fileIn} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden onChange={(e) => setFiles([...(e.target.files ?? [])])} />
         <span className="muted small">{files.length ? `แนบ ${files.length} ไฟล์` : ""}</span>
         <span style={{ flex: 1 }} />
-        <button className="btn sm pr" type="button" disabled={busy} onClick={read}>{canRead ? "ให้ Claude อ่าน" : "อ่านรายการ"}</button>
+        <button className="btn sm pr" type="button" disabled={busy} onClick={read}>{canRead ? "ให้ AI อ่าน" : "อ่านรายการ"}</button>
       </div>
-      <div className="hint" style={{ marginTop: 6, whiteSpace: "normal" }}>ถ้าเอกสารแยกตารางตามหมวด Claude จะแยกหมวดให้ทีละสาย ตรวจและเปลี่ยนหมวดได้ในตารางก่อนบันทึก</div>
+      <div className="hint" style={{ marginTop: 6, whiteSpace: "normal" }}>ถ้าเอกสารแยกตารางตามหมวด AI จะแยกหมวดให้ทีละสาย ตรวจและเปลี่ยนหมวดได้ในตารางก่อนบันทึก</div>
       {msg ? <div className={msg.c + "box"}>{msg.t}</div> : null}
       {rows.length ? <>
         <div className="acts" style={{ marginTop: 12 }}>

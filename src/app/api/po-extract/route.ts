@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { aiConfigured, aiErrorMessage } from "@/lib/ai-extract";
 import { requireCompany } from "@/lib/context";
 import { saveFile } from "@/lib/data/files";
-import { extractPO, type PoFile } from "@/lib/po-extract";
+import { extractPO, type ExtractedPO, type PoFile } from "@/lib/po-extract";
+import { parsePoText, pdfLines } from "@/lib/po-text";
 
 const OK_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 const MAX_TOTAL = 20 * 1024 * 1024;
@@ -14,7 +15,7 @@ const toB64 = (buf: ArrayBuffer) => {
   return btoa(s);
 };
 
-// รับไฟล์ใบสั่งจ้าง → เก็บไฟล์ไว้ในที่เก็บของบริษัท → ให้ Claude อ่าน → ส่งข้อมูลกลับให้ฟอร์ม
+// รับไฟล์ใบสั่งจ้าง → เก็บไฟล์ไว้ในที่เก็บของบริษัท → อ่านข้อความใน PDF เอง (ใช้ AI เฉพาะไฟล์สแกน/รูป) → ส่งข้อมูลกลับให้ฟอร์ม
 export async function POST(req: NextRequest) {
   const { company, perm } = await requireCompany();
   if (!perm.orders) return NextResponse.json({ error: "เฉพาะธุรการหรือเจ้าของ" }, { status: 403 });
@@ -28,10 +29,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ไฟล์รวมกันต้องไม่เกิน 20MB" }, { status: 400 });
 
   const payload: PoFile[] = [];
+  const pdfs: Uint8Array[] = [];
   let storedPath = "";
   for (const [i, f] of files.entries()) {
     const buf = await f.arrayBuffer();
     payload.push({ mediaType: f.type, base64: toB64(buf) });
+    if (f.type === "application/pdf") pdfs.push(new Uint8Array(buf.slice(0)));
     if (i === 0) {
       const ext = f.type === "application/pdf" ? "pdf" : f.type.split("/")[1];
       const path = `${company.id}/po/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -39,20 +42,47 @@ export async function POST(req: NextRequest) {
         await saveFile(path, Buffer.from(buf));
         storedPath = path;
       } catch {
-        // เก็บไฟล์ไม่สำเร็จก็ยังให้ Claude อ่านต่อได้
+        // เก็บไฟล์ไม่สำเร็จก็ยังให้ AI อ่านต่อได้
       }
     }
   }
 
+  // 1) PDF ที่มีข้อความ (สร้างจากคอมพิวเตอร์): อ่านเองก่อน ไม่ใช้ AI
+  // 2) PDF สแกน / รูปถ่าย / อ่านเองแล้วไม่ได้ตาราง: ให้ AI อ่าน (ถ้าตั้งค่าไว้)
+  const fail = (error: string, status = 422) => NextResponse.json({ error, po_file_path: storedPath }, { status });
+  const ok = (data: ExtractedPO, source: "text" | "ai", aiError?: string) =>
+    NextResponse.json({ data, source, aiError, po_file_path: storedPath });
+
+  let text: ExtractedPO | null = null;
+  let scanned = false;
+  let broken = false;
+  // อ่านเองได้เฉพาะเมื่อแนบเป็น PDF ทั้งหมด (มีรูปปนมา ต้องให้ AI อ่านรวมกัน)
+  if (pdfs.length === files.length) {
+    try {
+      const lines = (await Promise.all(pdfs.map((b) => pdfLines(b)))).flat();
+      if (lines.join("").replace(/\s/g, "").length < 30) scanned = true;
+      else text = parsePoText(lines);
+    } catch (e) {
+      console.warn("[po-extract] อ่าน PDF ไม่สำเร็จ:", e);
+      broken = true;
+    }
+  }
+  // อ่านเองได้ครบ = มีตารางสายทางและมีพื้นที่ → ไม่ต้องใช้ AI
+  if (text && text.routes.length && text.routes.some((r) => r.area > 0)) return ok(text, "text");
+
+  if (!aiConfigured()) {
+    if (text && (text.routes.length || text.no)) return ok(text, "text");
+    if (!pdfs.length) return fail("ไม่มี AI จึงอ่านรูปถ่ายไม่ได้ แนบเป็น PDF ที่สร้างจากคอมพิวเตอร์ หรือกรอกเองด้านล่าง (เก็บไฟล์ไว้แล้ว)");
+    if (broken) return fail("เปิดไฟล์ PDF นี้ไม่ได้ กรอกเองด้านล่าง (เก็บไฟล์ไว้แล้ว)");
+    if (scanned) return fail("PDF นี้เป็นภาพสแกน ไม่มีข้อความให้อ่าน กรอกเองด้านล่าง (เก็บไฟล์ไว้แล้ว)");
+    return fail("อ่านข้อความใน PDF ได้ แต่ไม่พบเลขที่ใบสั่งจ้างหรือตารางสายทาง กรอกเองด้านล่าง (เก็บไฟล์ไว้แล้ว)");
+  }
+
   try {
-    const data = await extractPO(payload);
-    return NextResponse.json({ data, po_file_path: storedPath });
+    return ok(await extractPO(payload), "ai");
   } catch (e) {
-    let msg = e instanceof Error ? e.message : String(e);
-    if (e instanceof Anthropic.AuthenticationError) msg = "ANTHROPIC_API_KEY ไม่ถูกต้อง";
-    else if (e instanceof Anthropic.RateLimitError) msg = "ใช้งาน Claude ถี่เกินไป รอสักครู่แล้วลองใหม่";
-    else if (e instanceof Anthropic.BadRequestError) msg = "Claude อ่านไฟล์นี้ไม่ได้: " + e.message;
-    else if (e instanceof Anthropic.APIError) msg = `Claude ขัดข้อง (${e.status}) ลองใหม่อีกครั้ง`;
-    return NextResponse.json({ error: msg, po_file_path: storedPath }, { status: 502 });
+    const msg = aiErrorMessage(e);
+    if (text && (text.routes.length || text.no)) return ok(text, "text", msg);
+    return fail(msg, 502);
   }
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCompany } from "@/lib/context";
+import { aiConfigured } from "@/lib/ai-extract";
 import { sql } from "@/lib/db/sql";
 import { fileUrl as toFileUrl } from "@/lib/data/files";
 import { loadAgencies, loadCosts, loadOrders } from "@/lib/orders";
@@ -140,7 +141,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             key={o.id + o.po_no + o.routes.length}
             agencies={agencies}
             readOnly={!manage}
-            canRead={Boolean(process.env.ANTHROPIC_API_KEY)}
+            canRead={aiConfigured()}
             initial={{
               id: o.id, agency_id: o.agency_id, fy: o.fy, round_no: o.round_no, hmd: o.hmd, po_no: o.po_no ?? "", po_date: o.po_date ?? "",
               proj_no: o.proj_no ?? "", due_days: o.due_days ? String(o.due_days) : "", due_date: o.due_date ?? "", penalty: o.penalty ?? "",

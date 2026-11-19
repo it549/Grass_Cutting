@@ -228,7 +228,7 @@ export function DocsView({ W, k, agSel, docs, tab, flash, can }: {
             </tbody>
           </table></div>
         </div>
-        <div className="hint">ⓘ อัปโหลดใบสั่งจ้างแล้ว Claude จะอ่านและจับคู่กับสายในแผนให้ ถ้ามีสายที่ไม่ตรงกับแผนจะเตือนก่อนบันทึก</div>
+        <div className="hint">ⓘ อัปโหลดใบสั่งจ้างแล้ว AI จะอ่านและจับคู่กับสายในแผนให้ ถ้ามีสายที่ไม่ตรงกับแผนจะเตือนก่อนบันทึก</div>
       </div>
       {plan != null ? (
         <RoundDialog W={W} editK={k} initAg={k.ag} focusH={plan} onClose={() => setPlan(null)} onDone={() => { setPlan(null); router.refresh(); }} />

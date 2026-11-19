@@ -1,4 +1,5 @@
 import { requireCompany } from "@/lib/context";
+import { aiConfigured } from "@/lib/ai-extract";
 import { loadWorld } from "@/lib/world";
 import { RoadsView } from "./RoadsView";
 
@@ -12,7 +13,7 @@ export default async function RoadsPage({ searchParams }: { searchParams: Promis
     <RoadsView
       W={W}
       can={{ edit: perm.orders, len: perm.work, prices: perm.prices }}
-      canRead={Boolean(process.env.ANTHROPIC_API_KEY)}
+      canRead={aiConfigured()}
       init={{ ag: sp.ag, h: sp.h, sel: sp.g }}
     />
   );

@@ -109,7 +109,8 @@ export function OrderEditor({
       setNote(
         (mergeNote ? mergeNote + " · " : "") +
         (warn.length ? warn.join(" · ") + " · " : "") +
-        `Claude อ่านได้ ${(d.routes ?? []).length} สายทาง รวม ${fmt0(tt.area)} ตร.ม. เป็นเงิน ${fmt(tt.total)} บาท` +
+        (j.aiError ? `AI อ่านไม่สำเร็จ (${j.aiError}) จึงอ่านจากข้อความใน PDF แทน · ` : "") +
+        `${j.source === "text" ? "อ่านจากข้อความใน PDF ได้" : "AI อ่านได้"} ${(d.routes ?? []).length} สายทาง รวม ${fmt0(tt.area)} ตร.ม. เป็นเงิน ${fmt(tt.total)} บาท` +
           (d.hmd && !hmd ? ` · ใบสั่งจ้างระบุหมวด "${d.hmd}" แต่ไม่ตรงกับหมวดในแขวงนี้ เลือกหมวดเอง` : "") +
           " · ตรวจกับใบสั่งจ้างจริงอีกครั้งก่อนกดบันทึก",
       );
@@ -166,13 +167,15 @@ export function OrderEditor({
         <div className="card drop">
           <div className="serif h3" style={{ marginBottom: 4 }}>อ่านจากใบสั่งจ้าง</div>
           <p className="small muted" style={{ margin: "0 0 10px" }}>
-            แนบ PDF ใบสั่งจ้าง (หรือรูปถ่ายทุกหน้า) Claude จะกรอกเลขที่ วันที่ สายทาง พื้นที่ และราคาต่อ ตร.ม. ให้ แล้วตรวจแก้ได้ก่อนบันทึก
+            {canRead
+              ? "แนบ PDF ใบสั่งจ้าง (หรือรูปถ่ายทุกหน้า) ระบบจะกรอกเลขที่ วันที่ สายทาง พื้นที่ และราคาต่อ ตร.ม. ให้ แล้วตรวจแก้ได้ก่อนบันทึก · PDF ที่สร้างจากคอมพิวเตอร์อ่านเองทันที ใช้ AI เฉพาะไฟล์สแกนหรือรูปถ่าย"
+              : "แนบ PDF ใบสั่งจ้างที่สร้างจากคอมพิวเตอร์ ระบบจะอ่านข้อความในไฟล์แล้วกรอกเลขที่ วันที่ สายทาง พื้นที่ และราคาต่อ ตร.ม. ให้ ตรวจแก้ได้ก่อนบันทึก"}
           </p>
           <div className="acts" style={{ alignItems: "center" }}>
-            <input ref={fileRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple disabled={reading || !canRead} onChange={(e) => readPO(e.target.files)} />
-            {reading && <span className="small">กำลังให้ Claude อ่าน อาจใช้เวลา 20–60 วินาที…</span>}
+            <input ref={fileRef} type="file" accept={canRead ? "application/pdf,image/jpeg,image/png,image/webp" : "application/pdf"} multiple disabled={reading} onChange={(e) => readPO(e.target.files)} />
+            {reading && <span className="small">{canRead ? "กำลังอ่าน… ถ้าเป็นไฟล์สแกนจะให้ AI อ่าน อาจใช้เวลา 20–60 วินาที" : "กำลังอ่าน PDF…"}</span>}
           </div>
-          {!canRead && <p className="small" style={{ color: "var(--warn)" }}>ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY จึงอ่านอัตโนมัติไม่ได้ กรอกเองด้านล่างได้</p>}
+          {!canRead && <p className="small muted" style={{ margin: "8px 0 0" }}>ไม่ได้ใช้ AI: PDF สแกนหรือรูปถ่ายอ่านไม่ได้ (ไม่มีข้อความในไฟล์) ให้กรอกเองด้านล่าง</p>}
         </div>
       )}
       {note && <p className="alert ok" style={{ margin: 0 }}>{note}</p>}
