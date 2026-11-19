@@ -6,6 +6,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3004
+    },
+    {
+      "name": "grass-cutting-dev-alt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev", "-p", "3005"],
+      "port": 3005
+    },
+    {
+      "name": "grass-cutting-dev-noai",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "require('child_process').spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '-p', '3006'], { stdio: 'inherit', env: { ...process.env, GEMINI_API_KEY: '', ANTHROPIC_API_KEY: '' } }).on('exit', (c) => process.exit(c ?? 0))"],
+      "port": 3006
     }
   ]
 }

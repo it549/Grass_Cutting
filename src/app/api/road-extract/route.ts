@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { aiErrorMessage } from "@/lib/ai-extract";
 import { requireCompany } from "@/lib/context";
 import type { PoFile } from "@/lib/po-extract";
 import { extractRoads } from "@/lib/road-extract";
@@ -13,7 +13,7 @@ const toB64 = (buf: ArrayBuffer) => {
   return btoa(s);
 };
 
-// ข้อความ/รูป/PDF รายชื่อสายทาง → Claude อ่านเป็นรายการสาย (ยังไม่บันทึก ให้ผู้ใช้ตรวจก่อน)
+// ข้อความ/รูป/PDF รายชื่อสายทาง → AI อ่านเป็นรายการสาย (ยังไม่บันทึก ให้ผู้ใช้ตรวจก่อน)
 export async function POST(req: NextRequest) {
   const { perm } = await requireCompany();
   if (!perm.orders) return NextResponse.json({ error: "เฉพาะธุรการหรือเจ้าของ" }, { status: 403 });
@@ -29,10 +29,6 @@ export async function POST(req: NextRequest) {
   try {
     return NextResponse.json({ data: await extractRoads(text, payload, hmds) });
   } catch (e) {
-    let msg = e instanceof Error ? e.message : String(e);
-    if (e instanceof Anthropic.AuthenticationError) msg = "ANTHROPIC_API_KEY ไม่ถูกต้อง";
-    else if (e instanceof Anthropic.RateLimitError) msg = "ใช้งาน Claude ถี่เกินไป รอสักครู่แล้วลองใหม่";
-    else if (e instanceof Anthropic.APIError) msg = `Claude ขัดข้อง (${e.status}) ลองใหม่อีกครั้ง`;
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return NextResponse.json({ error: aiErrorMessage(e) }, { status: 502 });
   }
 }

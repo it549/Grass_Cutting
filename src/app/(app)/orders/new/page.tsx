@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireCompany } from "@/lib/context";
+import { aiConfigured } from "@/lib/ai-extract";
 import { sql } from "@/lib/db/sql";
 import { loadAgencies } from "@/lib/orders";
 import { OrderEditor } from "@/components/OrderEditor";
@@ -36,7 +37,7 @@ export default async function NewOrder({ searchParams }: { searchParams: Promise
       <OrderEditor
         agencies={agencies}
         readOnly={false}
-        canRead={Boolean(process.env.ANTHROPIC_API_KEY)}
+        canRead={aiConfigured()}
         initial={{ id: null, agency_id: ag.id, fy, round_no: round, hmd: sp.hmd ?? "", po_no: "", po_date: "", proj_no: "", due_days: "", due_date: "", penalty: "", vat_incl: true, note: "", po_file_path: "", routes: [] }}
       />
     </div>

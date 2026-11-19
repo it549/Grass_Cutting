@@ -31,7 +31,7 @@ cp .env.example .env
 กรอก 3 ค่าใน `.env`:
 - `DATABASE_URL` — เช่น `postgresql://postgres:รหัสผ่าน@localhost:5432/grass_cutting`
 - `AUTH_SECRET` — ใช้เซ็น session cookie สร้างด้วย `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` (**ห้ามใช้ค่าตัวอย่าง ห้ามให้ใครเห็น เปลี่ยนแล้วทุกคนที่ล็อกอินอยู่จะหลุดออก**)
-- `ANTHROPIC_API_KEY` — ไม่ใส่ก็ใช้งานได้ แต่ต้องกรอกสายทางเอง (ดูขั้นที่ 4)
+- `GEMINI_API_KEY` (ฟรี) และ/หรือ `ANTHROPIC_API_KEY` — ให้ AI อ่านใบสั่งจ้าง ไม่ใส่ก็ใช้งานได้ แต่ต้องกรอกสายทางเอง (ดูขั้นที่ 5)
 
 ## ขั้นที่ 3 · รันเว็บ
 
@@ -88,9 +88,18 @@ pm2-startup install          # ให้ pm2 เปิดเว็บเอง�
 
 > เว็บรันที่พอร์ต **3004** (ตั้งไว้ใน `package.json` ทั้ง `dev` และ `start`) · ถ้าสร้าง tunnel จากหน้า Cloudflare (ติดตั้งด้วย token แทนไฟล์ `config.yml`) ให้ตั้งที่ Cloudflare One → **Networks → Tunnels** → เลือก tunnel → **Public Hostname** → Service เป็น `http://localhost:3004`
 
-## ขั้นที่ 5 · ใส่คีย์ Claude API (ให้ Claude อ่านใบสั่งจ้าง)
+## ขั้นที่ 5 · ใส่คีย์ AI (ให้ AI อ่านใบสั่งจ้างและรายชื่อสายทาง)
 
-ไม่ใส่ก็ใช้งานได้ แต่ต้องกรอกสายทางเอง
+ไม่ใส่ก็ใช้งานได้ แต่ต้องกรอกสายทางเอง ใส่ได้ตัวเดียวหรือทั้งสองตัว ถ้ามีทั้งสองตัว ระบบจะใช้ Gemini ก่อน และถ้า Gemini อ่านไม่สำเร็จหรือโควตาเต็ม จะใช้ Claude แทนโดยอัตโนมัติ
+
+**Gemini (ฟรี)**
+- aistudio.google.com → **Get API key → Create API key** → คัดลอกคีย์
+- วางค่าในช่อง `GEMINI_API_KEY` ของไฟล์ `.env` แล้ว restart
+- free tier มีเพดานจำนวนครั้งต่อนาทีและต่อวัน และ Google อาจนำข้อมูลที่ส่งไปใช้ปรับปรุงบริการ ถ้าไม่ต้องการแบบนี้ให้เปิด billing ที่ Google หรือใช้ Claude แทน
+- รุ่นที่ใช้ตั้งไว้เป็น `gemini-flash-latest` เปลี่ยนได้ที่ `GEMINI_MODEL`
+- ไฟล์แนบที่ส่งให้ Gemini ได้ รวมกันประมาณ 14MB ถ้าใหญ่กว่านี้จะใช้ Claude แทน (ถ้ามีคีย์)
+
+**Claude (เสียเงิน แม่นกว่า)**
 - console.anthropic.com → **Settings → API Keys → Create Key** → คัดลอกคีย์ (ขึ้นต้น `sk-ant-`) และเติมเครดิตที่ **Billing**
 - วางค่าในช่อง `ANTHROPIC_API_KEY` ของไฟล์ `.env` บนเครื่อง/เซิร์ฟเวอร์ที่รันเว็บ แล้ว restart (`pm2 restart grass-cutting`)
 - ห้ามส่งคีย์นี้ในแชตหรือ commit ขึ้น git (`.env` อยู่ใน `.gitignore` แล้ว)

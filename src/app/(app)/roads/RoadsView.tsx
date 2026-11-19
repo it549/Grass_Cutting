@@ -116,7 +116,7 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
         title="ทะเบียนสายทาง"
         sub="บันทึกครั้งเดียว ใช้ทุกงวด · เก็บความยาวเป็น กม. ส่วนพื้นที่ ตร.ม. มาจากใบสั่งจ้าง"
         acts={can.edit ? <>
-          <button className="btn" type="button" onClick={() => setDlg("imp")}>วางรายการ / รูป ให้ Claude อ่าน</button>
+          <button className="btn" type="button" onClick={() => setDlg("imp")}>วางรายการ / รูป ให้ AI อ่าน</button>
           <button className="btn pr" type="button" onClick={() => setDlg("add")}>+ เพิ่มสายทาง</button>
         </> : null}
       />

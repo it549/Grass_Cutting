@@ -191,7 +191,7 @@ export function rkStat(W: World, wi: ReturnType<typeof workIndex>, k: RoundKey) 
 }
 export const RK_COL: Record<string, string> = { done: "var(--acc)", cut: "#5b8bd6", miss: "#e9b56b" };
 
-/** รวมเลขใบสั่งจ้างที่ Claude อ่านได้เข้ากับแผนของหมวด: จับคู่ตามเลขสาย */
+/** รวมเลขใบสั่งจ้างที่ AI อ่านได้เข้ากับแผนของหมวด: จับคู่ตามเลขสาย */
 export function mergePo(plan: Route[], read: { code: string; descr: string; area: number; rate: number }[]) {
   const used = new Set<string>(), out: (Partial<Route> & { code: string; descr: string; area: number; rate: number; in_po: boolean })[] = [], extra: string[] = [];
   for (const p of read) {
@@ -201,7 +201,7 @@ export function mergePo(plan: Route[], read: { code: string; descr: string; area
   }
   const missing = plan.filter((x) => !used.has(x.id));
   const routes = [...out, ...missing.map((x) => ({ ...x, rate: x.rate ?? 0, in_po: false }))];
-  const note = `Claude อ่านได้ ${read.length} สาย ตรงกับแผน ${out.length - extra.length} สาย`
+  const note = `AI อ่านได้ ${read.length} สาย ตรงกับแผน ${out.length - extra.length} สาย`
     + (extra.length ? ` · มีในใบสั่งจ้างแต่ไม่อยู่ในแผน: ${extra.join(", ")}` : "")
     + (missing.length ? ` · อยู่ในแผนแต่ไม่มีในใบสั่งจ้าง: ${missing.map((x) => x.code).join(", ")} (จะไม่ขึ้นในเอกสาร)` : "")
     + " · ตรวจกับใบสั่งจ้างจริงก่อนบันทึก";
