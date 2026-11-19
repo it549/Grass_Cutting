@@ -85,11 +85,15 @@ export function findDate(s: string): string {
 }
 
 const num = (s: string) => Number(s.replace(/,/g, ""));
-// รหัสสายทาง เช่น ชบ.3083 / ชบ. 3083 (ไม่นับที่อยู่ติดตัวอักษรหรือจุด เช่น ทช.ชบ.3083 ในชื่อสาย)
-const CODE = /(?<![ก-ฮ.])([ก-ฮ]{1,3})\.\s?(\d{3,5})(?!\d)/;
-const CODE_G = new RegExp(CODE.source, "g");
+// รหัสสายทาง: มีจุด ชบ.3083 / ชบ. 3083 หรือไม่มีจุด ชบ3083 / ชบ 3083
+// แบบไม่มีจุดรับเฉพาะอักษร 2 ตัว และตัวเลขต้องไม่ต่อด้วย , หรือ . (กันคำอย่าง "รวม 102,885" หรือ "ประมาณ 2569")
+const CODE_BODY = String.raw`(?:([ก-ฮ]{1,3})\.\s?(\d{3,5})(?!\d)|([ก-ฮ]{2})\s?(\d{3,5})(?![\d,.]))`;
+// ไม่นับที่อยู่ติดอักษรไทยหรือจุด เช่น ชบ.3083 ใน ทช.ชบ.3083 หรือ ณ 2569 ใน ประมาณ 2569
+const CODE_G = new RegExp(String.raw`(?<![฀-๿.])` + CODE_BODY, "g");
 // บรรทัดที่เริ่มแถวใหม่ในตาราง: [ลำดับ] [สาย/สายทาง] รหัส
-const ROW_START = /^(?:\d{1,3}[.)]?\s+)?(สาย(?:ทาง)?(?:หมายเลข)?\s*)?([ก-ฮ]{1,3})\.\s?(\d{3,5})(?!\d)/;
+const ROW_START = new RegExp(String.raw`^(?:\d{1,3}[.)]?\s+)?(สาย(?:ทาง)?(?:หมายเลข)?\s*)?` + CODE_BODY);
+/** รหัสจากผลของ ROW_START ในรูปมาตรฐาน: อักษร.ตัวเลข */
+const rowCode = (m: RegExpMatchArray) => ({ pre: m[2] ?? m[4], code: `${m[2] ?? m[4]}.${m[3] ?? m[5]}` });
 // ทางหลวงที่มักอยู่ในชื่อสาย ไม่ใช่รหัสสายของใบสั่งจ้าง
 const NOT_ROW = /^(ทล|ทช)$/;
 const TABLE_END = /^(รวมเป็นเงิน|รวมทั้งสิ้น|รวมเงิน|รวม\s|รวม$|ราคารวม|เงื่อนไข|หมายเหตุ)/;
@@ -97,7 +101,8 @@ const isTh = (c: string) => /[฀-๿]/.test(c);
 
 const UNIT = /(?:ตร\.?\s?ม\.?|ตารางเมตร|บาท)(?=\s|$)/g;
 // รหัสทางทุกแบบในชื่อสาย เช่น ทล.3 ทล.331 ชบ.3083 (ตัวเลขติดกับจุด)
-const ANY_CODE = /[ก-ฮ]{1,3}\.\d+/g;
+// แบบไม่มีจุดต้องติดกัน (ทล3 ชบ3083) และไม่อยู่ท้ายคำไทย
+const ANY_CODE = /[ก-ฮ]{1,3}\.\d+|(?<![฀-๿])[ก-ฮ]{2}\d+/g;
 /** แยกตัวเลขในแถว (ไม่นับเลขที่เป็นส่วนของรหัสสาย) */
 function rowNumbers(s: string) {
   return (s.replace(UNIT, " ").replace(CODE_G, " ").replace(ANY_CODE, " ").match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map(num).filter((v) => !Number.isNaN(v));
@@ -170,7 +175,7 @@ export function parsePoText(raw: string[]): ExtractedPO {
   const segs: string[][] = [];
   for (const l of lines) {
     const m = l.match(ROW_START);
-    const starts = m && (m[1] || !NOT_ROW.test(m[2]));
+    const starts = m && (m[1] || !NOT_ROW.test(rowCode(m).pre));
     if (starts) segs.push([l]);
     else if (segs.length) {
       if (TABLE_END.test(l)) break;
@@ -181,7 +186,10 @@ export function parsePoText(raw: string[]): ExtractedPO {
     const m = seg[0].match(ROW_START)!;
     const text = seg.join(" ");
     const { area, rate } = areaRate(rowNumbers(text.replace(ROW_START, " ")), text);
-    return { code: `${m[2]}.${m[3]}`, descr: rowDescr(seg), area, rate };
+    const { code } = rowCode(m);
+    // รหัสต้นแถวเขียนเป็นรูปมาตรฐานในชื่อสาย (เช่น "สายทางชบ1010" → "สายทาง ชบ.1010")
+    const first = seg[0].replace(ROW_START, (all) => all.replace(new RegExp(CODE_BODY + "$"), " " + code));
+    return { code, descr: rowDescr([first, ...seg.slice(1)]), area, rate };
   });
 
   return { no, date, projNo, dueDays, dueDate, agency, hmd, vatIncl, penalty, routes };
