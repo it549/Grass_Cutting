@@ -119,6 +119,38 @@ export async function deleteRoad(id: string): Promise<R> {
   return { ok: true };
 }
 
+/** ย้ายหลายสายไปหมวดอื่น (ในแขวงเดิมหรือแขวงอื่นของบริษัท) */
+export async function moveRoads(ids: string[], agencyId: string, rawHmd: string): Promise<R> {
+  const { company, perm } = await requireCompany();
+  if (!perm.orders) return { ok: false, error: "เฉพาะธุรการหรือเจ้าของที่ย้ายหมวดได้" };
+  const L = [...new Set((ids ?? []).filter(isUuid))];
+  if (!L.length) return { ok: false, error: "ยังไม่ได้เลือกสาย" };
+  if (!isUuid(agencyId)) return { ok: false, error: "เลือกแขวง" };
+  const h = String(rawHmd ?? "").trim().replace(/^หมวด(บำรุงทางหลวงชนบท)?\s*/, "");
+  const [a] = await sql<{ id: string; hmds: string[] }[]>`select id, hmds from agencies where id = ${agencyId} and company_id = ${company.id}`;
+  if (!a) return { ok: false, error: "ไม่พบแขวง" };
+  const rs = await sql<{ id: string; agency_id: string; code: string }[]>`select id, agency_id, code from roads where id in ${sql(L)} and company_id = ${company.id}`;
+  if (rs.length !== L.length) return { ok: false, error: "ไม่พบสายทางบางสาย" };
+  const cross = rs.filter((r) => r.agency_id !== agencyId);
+  if (cross.length) {
+    // ย้ายข้ามแขวง: สายที่อยู่ในงวดแล้วย้ายไม่ได้ (งวดผูกกับแขวงเดิม) และเลขสายต้องไม่ซ้ำในแขวงใหม่
+    const used = await sql<{ code: string }[]>`select distinct r.code from roads r join routes t on t.road_id = r.id where r.id in ${sql(cross.map((r) => r.id))}`;
+    if (used.length) return { ok: false, error: `${used.map((u) => u.code).join(", ")} อยู่ในงวดของแขวงเดิมแล้ว ย้ายข้ามแขวงไม่ได้` };
+    const have = await sql<{ code: string }[]>`select code from roads where company_id = ${company.id} and agency_id = ${agencyId}`;
+    const hs = new Set(have.map((x) => cNorm(x.code)));
+    const dup = cross.filter((r) => hs.has(cNorm(r.code)));
+    if (dup.length) return { ok: false, error: `${dup.map((r) => r.code).join(", ")} มีอยู่ในแขวงปลายทางแล้ว` };
+  }
+  if (h && !(a.hmds ?? []).includes(h)) await sql`update agencies set hmds = ${[...(a.hmds ?? []), h]} where id = ${agencyId} and company_id = ${company.id}`;
+  try {
+    await sql`update roads set agency_id = ${agencyId}, hmd = ${h} where id in ${sql(L)} and company_id = ${company.id}`;
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, n: L.length };
+}
+
 /** เพิ่มหมวดเข้าแขวง */
 export async function addHmd(agencyId: string, raw: string): Promise<R> {
   const { company, perm } = await requireCompany();

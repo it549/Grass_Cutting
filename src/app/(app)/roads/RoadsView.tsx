@@ -8,7 +8,7 @@ import {
   type Agency, type Order, type Road, type Route, type World,
   R_ST, cNorm, dShort, dateRange, fmt0, fmtKm, hasPo, hmdName, kmText, mapSearch, num, rInfo, regFind, rkName, rkOf, workIndex,
 } from "@/lib/model";
-import { addHmd, deleteRoad, updateRoad } from "./actions";
+import { addHmd, deleteRoad, moveRoads, updateRoad } from "./actions";
 import { RoadGrid } from "./RoadGrid";
 import { RoadImport } from "./RoadImport";
 
@@ -22,6 +22,16 @@ export const hmdsOf = (W: World, A: Agency) => {
   return hs;
 };
 
+/** ตัวเลือก "แขวง › หมวด" ทั้งบริษัท (value = agencyId|hmd) */
+const moveKey = (ag: string, h: string) => ag + "|" + h;
+function HmdOptions({ W }: { W: World }) {
+  return <>{W.agencies.map((a) => (
+    <optgroup key={a.id} label={a.short_name || a.name}>
+      {hmdsOf(W, a).map((hh) => <option key={hh} value={moveKey(a.id, hh)}>{hmdName(hh)}</option>)}
+    </optgroup>
+  ))}</>;
+}
+
 export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; canRead: boolean; init: { ag?: string; h?: string; sel?: string } }) {
   const [agSt, setAg] = useState(init.ag ?? "");
   const [hSt, setH] = useState<string | null>(init.h ?? null);
@@ -29,6 +39,8 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
   const [sel, setSel] = useState<string | null>(init.sel ?? null);
   const [dlg, setDlg] = useState<null | "add" | "edit" | "imp">(null);
   const [newH, setNewH] = useState("");
+  const [chk, setChk] = useState<Set<string>>(new Set());
+  const [moving, setMoving] = useState(false);
 
   const wi = useMemo(() => workIndex(W.days), [W.days]);
   // สาย → งวดที่เคยอยู่ (ใหม่สุดก่อน)
@@ -72,7 +84,22 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
     }
     return <span className="muted small">–</span>;
   };
-  const pick = (ag: string, hh: string) => { setAg(ag); setH(hh); setQ(""); setSel(null); };
+  const pick = (ag: string, hh: string) => { setAg(ag); setH(hh); setQ(""); setSel(null); setChk(new Set()); };
+  const shown = list.filter((g) => chk.has(g.id));
+  const toggle = (ids: string[], on: boolean) => setChk((s) => { const n = new Set(s); for (const id of ids) if (on) n.add(id); else n.delete(id); return n; });
+  const moveSel = async (v: string) => {
+    if (!v || !shown.length) return;
+    const ag = v.slice(0, v.indexOf("|")), hh = v.slice(v.indexOf("|") + 1);
+    const todo = shown.filter((g) => g.agency_id !== ag || (g.hmd || "") !== hh);
+    if (!todo.length) { toast("สายที่เลือกอยู่ใน" + hmdName(hh) + "อยู่แล้ว"); return; }
+    setMoving(true);
+    const r = await moveRoads(todo.map((g) => g.id), ag, hh);
+    setMoving(false);
+    if (!r.ok) { toast(r.error, true); return; }
+    const an = W.agencies.find((a) => a.id === ag);
+    toast(`ย้าย ${r.n} สายไป${hmdName(hh)}${ag !== A.id ? " (" + (an?.short_name || an?.name || "") + ")" : ""} แล้ว`);
+    setChk(new Set());
+  };
   const addH = async () => {
     const v = newH.trim();
     if (!v) return;
@@ -121,10 +148,11 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
           </div>
           {list.length ? (
             <div className="tscroll"><table className="tb">
-              <thead><tr><th>เลขสาย</th><th>ชื่อสาย</th><th>อำเภอ</th><th className="n">ความยาว</th>{qn ? <th>หมวด</th> : null}<th>ตัดล่าสุด</th></tr></thead>
+              <thead><tr>{can.edit ? <th className="ck"><input type="checkbox" title="เลือกทุกสายในตาราง" checked={list.every((g) => chk.has(g.id))} onChange={(e) => toggle(list.map((g) => g.id), e.target.checked)} /></th> : null}<th>เลขสาย</th><th>ชื่อสาย</th><th>อำเภอ</th><th className="n">ความยาว</th>{qn ? <th>หมวด</th> : null}<th>ตัดล่าสุด</th></tr></thead>
               <tbody>
                 {list.map((g) => (
                   <tr key={g.id} className={"click" + (g.id === sel ? " sel" : "")} onClick={() => setSel(g.id)}>
+                    {can.edit ? <td className="ck" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={chk.has(g.id)} onChange={(e) => toggle([g.id], e.target.checked)} /></td> : null}
                     <td><b className="code">{g.code}</b></td>
                     <td><MapA url={g.map_url}>{g.name}</MapA></td>
                     <td className="muted">{g.amp}</td>
@@ -138,6 +166,18 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
           ) : (
             <div className="emp">{qn ? "ไม่พบสายที่ค้นหา" : <>ยังไม่มีสายทางในหมวดนี้{can.edit ? <div style={{ marginTop: 12 }}><button className="btn pr" type="button" onClick={() => setDlg("add")}>+ เพิ่มสายทาง</button></div> : null}</>}</div>
           )}
+          {can.edit && shown.length ? (
+            <div className="cf">
+              <span className="small"><b>เลือก {shown.length} สาย</b> · ย้ายไปหมวด</span>
+              <div className="acts">
+                <select className="in" value="" disabled={moving} onChange={(e) => moveSel(e.target.value)} style={{ minWidth: 200 }}>
+                  <option value="">{moving ? "กำลังย้าย…" : "เลือกหมวดปลายทาง…"}</option>
+                  <HmdOptions W={W} />
+                </select>
+                <button className="btn sm" type="button" onClick={() => setChk(new Set())}>ยกเลิกเลือก</button>
+              </div>
+            </div>
+          ) : null}
           {qn || !list.length || !(can.edit || can.len) ? null : (
             <div className="cf"><span className="small muted">คลิกสายเพื่อแก้ทีละเส้น หรือแก้หลายเส้นพร้อมกัน</span><button className="btn sm" type="button" onClick={() => setDlg("edit")}>แก้หลายเส้น (ใส่ กม.)</button></div>
           )}
@@ -146,7 +186,7 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
         <div className="card">
           {G ? (
             <RoadDetail key={G.id} W={W} G={G} A={GA} can={can} uses={uses.get(G.id) ?? []} wi={wi}
-              onHmd={(hh) => { setAg(G.agency_id); setH(hh); }} onDeleted={() => setSel(null)} />
+              onHmd={(ag, hh) => { setAg(ag); setH(hh); }} onDeleted={() => setSel(null)} />
           ) : (
             <div className="emp">เลือกสายทางจากตาราง<br />เพื่อดูรายละเอียดและประวัติ</div>
           )}
@@ -166,7 +206,7 @@ export function RoadsView({ W, can, canRead, init }: { W: World; can: RoadCan; c
 type F = { code: string; name: string; amp: string; len: string; hmd: string; map: string; note: string };
 
 function RoadDetail({ W, G, A, can, uses, wi, onHmd, onDeleted }: {
-  W: World; G: Road; A: Agency; can: RoadCan; uses: Use[]; wi: ReturnType<typeof workIndex>; onHmd: (h: string) => void; onDeleted: () => void;
+  W: World; G: Road; A: Agency; can: RoadCan; uses: Use[]; wi: ReturnType<typeof workIndex>; onHmd: (ag: string, h: string) => void; onDeleted: () => void;
 }) {
   const [f, setF] = useState<F>({ code: G.code, name: G.name, amp: G.amp, len: G.len_km == null ? "" : String(G.len_km), hmd: G.hmd || "", map: G.map_url ?? "", note: G.note });
   const [st, setSt] = useState("");
@@ -182,7 +222,6 @@ function RoadDetail({ W, G, A, can, uses, wi, onHmd, onDeleted }: {
     if (W.roads.some((x) => x.id !== G.id && x.agency_id === G.agency_id && cNorm(x.code) === cNorm(v.code))) { setSt("เลขสายซ้ำกับที่มีอยู่"); return; }
     const r = await updateRoad(G.id, { agency_id: G.agency_id, hmd: v.hmd, code: v.code, name: v.name, amp: v.amp, len_km: t === "" ? null : Number(t), map_url: v.map, note: v.note });
     if (!r.ok) { setSt(""); toast(r.error, true); return; }
-    if (v.hmd !== (G.hmd || "")) onHmd(v.hmd);
     setSt("✓ บันทึกแล้ว");
   };
   const set = (k: keyof F, val: string, now = false) => {
@@ -190,6 +229,18 @@ function RoadDetail({ W, G, A, can, uses, wi, onHmd, onDeleted }: {
     setF(n); setSt("กำลังบันทึก…"); setArmed(false);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => save(n), now ? 0 : 600);
+  };
+  // ย้ายหมวด/แขวง: บันทึกช่องที่ค้างอยู่ก่อน แล้วค่อยย้าย
+  const moveTo = async (v: string) => {
+    const ag = v.slice(0, v.indexOf("|")), hh = v.slice(v.indexOf("|") + 1);
+    if (ag === G.agency_id && hh === (G.hmd || "")) return;
+    if (timer.current) { clearTimeout(timer.current); timer.current = null; await save(f); }
+    setSt("กำลังย้าย…");
+    const r = await moveRoads([G.id], ag, hh);
+    if (!r.ok) { setSt(""); toast(r.error, true); return; }
+    setF((x) => ({ ...x, hmd: hh }));
+    setSt("✓ ย้ายแล้ว");
+    onHmd(ag, hh);
   };
   const del = async () => {
     if (uses.length) { toast(`${G.code} อยู่ใน ${uses.length} งวดแล้ว ลบไม่ได้ (เอาออกจากงวดก่อน)`, true); return; }
@@ -213,9 +264,9 @@ function RoadDetail({ W, G, A, can, uses, wi, onHmd, onDeleted }: {
           <label className="f">อำเภอ{inp("amp")}</label>
           <label className="f">ความยาว (กม.){inp("len", { style: { textAlign: "right" }, inputMode: "decimal" }, !(can.edit || can.len))}</label>
         </div>
-        <label className="f">หมวด
-          <select className="in" value={f.hmd} disabled={ro} onChange={(e) => set("hmd", e.target.value, true)}>
-            {[...new Set([...A.hmds, G.hmd || ""])].map((hh) => <option key={hh} value={hh}>{hmdName(hh)}</option>)}
+        <label className="f">หมวด (ย้ายไปหมวด/แขวงอื่นได้)
+          <select className="in" value={moveKey(G.agency_id, G.hmd || "")} disabled={ro} onChange={(e) => moveTo(e.target.value)}>
+            <HmdOptions W={W} />
           </select>
         </label>
         <label className="f">ลิงก์ Google Maps{inp("map", { placeholder: "วางลิงก์ เช่น https://maps.app.goo.gl/…" })}</label>
