@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, use, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Badges } from "@/lib/badges";
+import { Logo } from "./Logo";
 
 const ICO: Record<string, string> = {
   dash: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
@@ -47,11 +48,10 @@ function Badge({ p, k }: { p: Promise<Badges>; k: keyof Badges }) {
 export function Sidebar({ can, company, footer, badges }: { can: NavCan; company: string; footer: React.ReactNode; badges: Promise<Badges> }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  const initial = (company || "ณ").replace(/^บริษัท\s*/, "").slice(0, 1);
   return (
     // จอเล็ก: เหลือแถบหัวบนสุด กด ☰ เพื่อเปิดเมนูเต็มจอ (กดลิงก์แล้วปิดเอง)
     <nav className={"sb" + (open ? " open" : "")} onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setOpen(false); }}>
-      <div className="brand"><i>{initial}</i><div><b>งานตัดหญ้า</b><small>{company}</small></div>
+      <div className="brand"><Logo className="lg" /><div><b>งานตัดหญ้า</b><small>{company}</small></div>
         <button type="button" className="sbtog" aria-label={open ? "ปิดเมนู" : "เปิดเมนู"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "✕" : "☰"}</button>
       </div>
       {NAV.filter((it) => !it.show || can[it.show]).map((it) => {

@@ -1,4 +1,5 @@
 import { signIn, signUp } from "./actions";
+import { Logo } from "@/components/Logo";
 
 export const metadata = { title: "เข้าสู่ระบบ · งานตัดหญ้า" };
 
@@ -8,7 +9,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="auth">
       <div className="auth-card">
-        <div className="mono"><span>ห</span></div>
+        <Logo size={44} className="mono" />
         <div className="eyebrow">Grass Works</div>
         <h1 className="serif">งานตัดหญ้า</h1>
         <p className="muted">{signup ? "สมัครใช้งาน แล้วสร้างบริษัทของคุณ" : "เข้าสู่ระบบเพื่อจัดการงวดงาน รูปภาพ และเอกสาร"}</p>
