@@ -17,7 +17,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
           <h1 className="serif">สร้างบริษัทไม่ได้</h1>
           <p className="alert">{NO_CREATE_MSG}</p>
           {ctx.memberships.length ? <p><Link href="/">← กลับไปที่บริษัท {ctx.active?.company.name}</Link></p>
-            : <p className="muted">มีคำเชิญเข้าบริษัทรออยู่ ออกจากระบบแล้วเข้าสู่ระบบใหม่ ระบบจะพาเข้าบริษัทนั้นเอง</p>}
+            : <p className="muted">ถ้าส่งคำขอผ่านลิงก์ชวนไว้ รอเจ้าของอนุมัติแล้วเข้าสู่ระบบใหม่ ถ้ามีคำเชิญด้วยอีเมล ออกจากระบบแล้วเข้าใหม่ ระบบจะพาเข้าบริษัทนั้นเอง</p>}
           <p className="small muted" style={{ marginTop: 18 }}>เข้าสู่ระบบอยู่ในชื่อ {ctx.email}</p>
           <form action="/auth/signout" method="post"><button className="link" type="submit">ออกจากระบบ</button></form>
         </div>
