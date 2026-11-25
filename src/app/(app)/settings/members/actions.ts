@@ -7,6 +7,7 @@ import { COMPANY_COOKIE, requireCompany } from "@/lib/context";
 import { sql } from "@/lib/db/sql";
 import { ROLES, type Role } from "@/lib/types";
 import { done } from "@/lib/flash";
+import { approveJoin as approveJoinDb, closeJoinCode, rejectJoin as rejectJoinDb, resetJoinCode } from "@/lib/data/join";
 
 const P = "/settings/members";
 
@@ -86,4 +87,43 @@ export async function removeMember(formData: FormData) {
   }
   revalidatePath(P);
   done(P, "นำออกจากบริษัทแล้ว");
+}
+
+export async function resetJoin() {
+  const { company, perm } = await requireCompany();
+  if (!perm.members) done(P, "เฉพาะเจ้าของที่จัดการลิงก์ชวนได้", true);
+  await resetJoinCode(company.id);
+  revalidatePath(P);
+  done(P, "สร้างลิงก์ชวนใหม่แล้ว ลิงก์เก่าใช้ไม่ได้แล้ว");
+}
+
+export async function closeJoin() {
+  const { company, perm } = await requireCompany();
+  if (!perm.members) done(P, "เฉพาะเจ้าของที่จัดการลิงก์ชวนได้", true);
+  await closeJoinCode(company.id);
+  revalidatePath(P);
+  done(P, "ปิดลิงก์ชวนแล้ว");
+}
+
+export async function approveJoin(formData: FormData) {
+  const { company, perm } = await requireCompany();
+  if (!perm.members) done(P, "เฉพาะเจ้าของที่อนุมัติได้", true);
+  const roles = readRoles(formData, false);
+  if (!roles.length) done(P, "เลือกบทบาทอย่างน้อย 1 อย่างก่อนกดอนุมัติ", true);
+  const scope = await readScope(formData, roles);
+  try {
+    await approveJoinDb(company.id, String(formData.get("id")), roles, scope);
+  } catch (e) {
+    done(P, e instanceof Error ? e.message : String(e), true);
+  }
+  revalidatePath("/", "layout");
+  done(P, `อนุมัติ ${String(formData.get("who") ?? "")} เข้าบริษัทแล้ว`);
+}
+
+export async function rejectJoin(formData: FormData) {
+  const { company, perm } = await requireCompany();
+  if (!perm.members) done(P, "เฉพาะเจ้าของที่จัดการคำขอได้", true);
+  await rejectJoinDb(company.id, String(formData.get("id")));
+  revalidatePath("/", "layout");
+  done(P, "ปฏิเสธคำขอแล้ว");
 }

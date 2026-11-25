@@ -28,8 +28,7 @@ export default async function DocPage({ params, searchParams }: { params: Promis
       <DocEditor
         id={row.id}
         initial={d}
-        canEdit={perm.docKind(row.kind)}
-        canIssue={row.kind !== "rc" || perm.rcIssue}
+        canEdit={perm.docs}
         orderId={row.order_id}
         orderLabel={o ? `งวดที่ ${o.round_no} · หมวด${o.hmd} · ใบสั่งจ้าง ${o.po_no || "–"}` : ""}
         routes={o?.routes.map((r) => ({ code: r.code, descr: r.descr, area: r.area, rate: r.rate })) ?? []}

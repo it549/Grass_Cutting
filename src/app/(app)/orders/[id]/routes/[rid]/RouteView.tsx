@@ -27,7 +27,7 @@ type Props = {
   photos: Photo[];
   days: { date: string; km: number | null; fin: boolean; crew: number }[];
   nav: { prev: { id: string; code: string } | null; next: { id: string; code: string } | null; pos: number; n: number };
-  can: { work: boolean; orders: boolean; prices: boolean; daily: boolean };
+  can: { work: boolean; orders: boolean; roads: boolean; prices: boolean; daily: boolean };
 };
 const LAB: Record<string, string> = { b: "ก่อนดำเนินการ", a: "หลังดำเนินการ", L: "ด้านซ้ายทาง", R: "ด้านขวาทาง" };
 const ts = (p: Photo) => (p.date || "") + " " + (p.time || "");
@@ -223,7 +223,7 @@ export function RouteView({ companyId, o, r, x, A, G, photos, days, nav, can }: 
     <div className="card rp">
       <div className="ch"><div className="rp-tabs">{tabs}</div></div>
       <div className="rp-main">
-        <div className="cb"><div className="rp-nol"><b>ใส่ความยาวสายก่อน</b><div className="muted small">ระบบจะสร้างช่องรูปตาม กม. ให้จากความยาวสาย (ช่อง &quot;ความยาวสาย&quot; ด้านบน หรือในทะเบียนสายทาง)</div></div></div>
+        <div className="cb"><div className="rp-nol"><b>{can.roads ? "ใส่ความยาวสายก่อน" : "รอ CEO ใส่ความยาวสาย"}</b><div className="muted small">ระบบจะสร้างช่องรูปตาม กม. ให้จากความยาวสาย{can.roads ? " (ช่อง \"ความยาวสาย\" ด้านบน หรือในทะเบียนสายทาง)" : " ความยาวสาย CEO เป็นคนใส่ในทะเบียนสายทาง"}</div></div></div>
         <div className="rp-side">{trayBox}</div>
       </div>
     </div>
@@ -307,11 +307,11 @@ export function RouteView({ companyId, o, r, x, A, G, photos, days, nav, can }: 
         <div className="stats">
           <Stat l="ระยะที่ตัด" v={fmtKm(x.km)} u={x.L ? "/ " + fmtKm(x.L) + " กม." : "กม."} p={x.L ? pct(x.km, x.L) : undefined}
             s={<span style={overKm ? { color: "var(--bad)" } : undefined}>{overKm ? "เกินความยาวสาย · " : ""}ความยาวสาย{" "}
-              <input key={String(x.L)} className="in inl" defaultValue={x.L || ""} placeholder="–" disabled={!wk} aria-label="ความยาวสาย (กม.)"
+              <input key={String(x.L)} className="in inl" defaultValue={x.L || ""} placeholder="–" disabled={!can.roads} aria-label="ความยาวสาย (กม.)"
                 onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                 onBlur={(e) => { const v = e.target.value.trim(); if (v !== String(x.L || "")) act(() => setRouteLength(r.id, v), "บันทึกความยาวสายแล้ว ใช้กับสายนี้ทุกงวด"); }} /> กม.</span>} />
           <Stat l="รูปรายงาน (ก่อน/หลัง)" v={x.ph ? `${x.ph.ba.n} / ${x.ph.ba.N}` : "–"} u="รูป" p={x.ph ? pct(x.ph.ba.n, x.ph.ba.N) : undefined}
-            s={x.ph ? (x.pics ? "รูปครบแล้ว" : `${x.ph.ba.pts} จุด ทุก 500 ม.`) : "ใส่ความยาวสายก่อน"} />
+            s={x.ph ? (x.pics ? "รูปครบแล้ว" : `${x.ph.ba.pts} จุด ทุก 500 ม.`) : can.roads ? "ใส่ความยาวสายก่อน" : "รอ CEO ใส่ความยาวสาย"} />
           <div className="st">
             <div className="l">สถานะ</div>
             <div className="v" style={{ fontSize: 16, marginTop: 6 }}><Chip c={stC}>{stT}</Chip></div>

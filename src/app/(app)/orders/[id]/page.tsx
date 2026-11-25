@@ -121,7 +121,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 </Link>
               ))}
               {!docList.some((d) => d.kind === k) && <p className="small muted" style={{ margin: "6px 0" }}>ยังไม่มี</p>}
-              {!o.po_no ? <p className="small muted" style={{ margin: "6px 0" }}>รอใบสั่งจ้าง (อัปโหลดหรือกรอกเลขที่ใบสั่งจ้างด้านล่างก่อน)</p> : perm.docKind(k) && (
+              {!o.po_no ? <p className="small muted" style={{ margin: "6px 0" }}>รอใบสั่งจ้าง (อัปโหลดหรือกรอกเลขที่ใบสั่งจ้างด้านล่างก่อน)</p> : perm.docs && (
                 <form action={createDoc}>
                   <input type="hidden" name="kind" value={k} />
                   <input type="hidden" name="order" value={o.id} />

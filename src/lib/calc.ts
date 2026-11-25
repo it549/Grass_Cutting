@@ -6,6 +6,9 @@ export const num = (v: unknown) => {
   return Number.isFinite(n) ? n : 0;
 };
 export const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+export const money = (v: unknown) => Math.round(num(v) * 100) / 100;
+export const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+export const isUuid = (s: unknown): s is string => typeof s === "string" && /^[0-9a-f-]{36}$/i.test(s);
 export const lineAmt = (r: Pick<RouteRow, "area" | "rate">) => r2(num(r.area) * num(r.rate));
 
 export function totals(routes: Pick<RouteRow, "area" | "rate">[], vatIncl = true) {

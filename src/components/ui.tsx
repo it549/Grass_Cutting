@@ -1,6 +1,6 @@
 "use client";
 
-// ชิ้นส่วนหน้าตาที่ใช้ร่วมกัน (แบบเดียวกับระบบบน claude.ai) ใช้ภายใน <div className="ax">
+// ชิ้นส่วนหน้าตาที่ใช้ร่วมกัน ใช้ภายใน <div className="ax">
 import { useEffect, useRef, useState } from "react";
 
 export const Chip = ({ c = "", children, title }: { c?: string; children: React.ReactNode; title?: string }) => (
@@ -52,6 +52,12 @@ export function Dialog({ title, onClose, onBackdrop, foot, children, wide }: { t
       </div>
     </div>
   );
+}
+
+/** ปุ่มที่ต้องกดสองครั้ง (กันกดพลาด) */
+export function Armed({ label, armedLabel, onGo, className = "lnk bad small" }: { label: string; armedLabel: string; onGo: () => Promise<void> | void; className?: string }) {
+  const [armed, setArmed] = useState(false);
+  return <button type="button" className={className} onClick={async () => { if (!armed) { setArmed(true); return; } await onGo(); setArmed(false); }}>{armed ? armedLabel : label}</button>;
 }
 
 /** ข้อความแจ้งสั้น ๆ ด้านล่างจอ */

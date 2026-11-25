@@ -23,7 +23,7 @@ export default async function DocsPage({ searchParams }: { searchParams: Promise
       docs={docs}
       tab={sp.tab === "list" ? "list" : "board"}
       flash={{ msg: sp.msg ?? null, err: sp.err ?? null }}
-      can={{ orders: perm.orders, prices: perm.prices, qt: perm.docKind("qt"), dl: perm.docKind("dl"), rc: perm.docKind("rc") }}
+      can={{ orders: perm.orders, prices: perm.prices, qt: perm.docs, dl: perm.docs, rc: perm.docs }}
     />
   );
 }

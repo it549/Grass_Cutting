@@ -20,7 +20,7 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
       agSel={ag}
       focus={{ h: sp.h ?? null, o: sp.o ?? null }}
       openNew={sp.new === "1"}
-      can={{ orders: perm.orders, prices: perm.prices, docs: perm.docs, daily: perm.daily }}
+      can={{ orders: perm.orders, roads: perm.roads, prices: perm.prices, docs: perm.docs, daily: perm.daily }}
     />
   );
 }

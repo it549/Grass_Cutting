@@ -14,7 +14,7 @@ import {
   roundKeys, roundOf, roundSlots, workIndex,
 } from "@/lib/model";
 
-type Can = { orders: boolean; prices: boolean; docs: boolean; daily: boolean };
+type Can = { orders: boolean; roads: boolean; prices: boolean; docs: boolean; daily: boolean };
 type WF = "all" | "open" | "cut" | "done";
 const WFS: [WF, string][] = [["all", "ทั้งหมด"], ["open", "ยังไม่เสร็จ"], ["cut", "ตัดครบ รอรูป"], ["done", "ครบ"]];
 const wfOk = (s: RInfo["s"], f: WF) => f === "all" || (f === "open" ? s === "todo" || s === "wip" : s === f);
@@ -152,7 +152,7 @@ export function WorkView({ W, k, agSel, focus, openNew, can }: {
       <div className="body">
         <div className="stats">
           <Stat l="สายที่ตัดครบ" v={T.cut} u={"/ " + T.n + " สาย"} p={pct(T.cut, T.n)} />
-          <Stat l="ระยะที่ตัด" v={fmtKm(T.km)} u={T.L ? "/ " + fmtKm(T.L) + " กม." : "กม."} s={T.L ? undefined : <Link className="lnk" href={`/roads?ag=${k.ag}`}>ใส่ความยาวสายที่ทะเบียนสายทาง</Link>} p={pct(T.km, T.L)} />
+          <Stat l="ระยะที่ตัด" v={fmtKm(T.km)} u={T.L ? "/ " + fmtKm(T.L) + " กม." : "กม."} s={T.L ? undefined : can.roads ? <Link className="lnk" href={`/roads?ag=${k.ag}`}>ใส่ความยาวสายที่ทะเบียนสายทาง</Link> : "รอ CEO ใส่ความยาวสาย"} p={pct(T.km, T.L)} />
           <Stat l="รูปครบ" v={T.pics} u={"/ " + T.n + " สาย"} p={pct(T.pics, T.n)} />
           <Stat l="ใบสั่งจ้าง" v={poN} u={"/ " + xs.length + " หมวด"} s={poN < xs.length ? "ยอดเงินขึ้นเมื่อได้ใบสั่งจ้าง" : "ได้ครบทุกหมวดแล้ว"} />
         </div>

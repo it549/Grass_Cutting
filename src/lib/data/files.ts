@@ -16,7 +16,7 @@ export async function fileOk(relPath: string, op: "read" | "write", userId: stri
   const [companyId, dir] = relPath.split("/");
   if (!companyId) return false;
   if (op === "read" && (dir === "photos" || dir === "logo")) return isMember(companyId, userId);
-  if (op === "read") return hasAny(companyId, userId, ["office", "account"]);
+  if (op === "read") return hasAny(companyId, userId, ["office"]);
   if (dir === "photos") return canWork(companyId, userId);
   return hasAny(companyId, userId, ["office"]);
 }

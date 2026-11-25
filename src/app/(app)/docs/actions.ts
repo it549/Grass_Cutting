@@ -44,7 +44,7 @@ export async function createDoc(formData: FormData) {
   const backRaw = String(formData.get("back") ?? "");
   const back = backRaw.startsWith("/") && !backRaw.startsWith("//") ? backRaw : `/orders/${orderId}`;
   const fail = (m: string) => redirect(`${back}${back.includes("?") ? "&" : "?"}err=${encodeURIComponent(m)}`);
-  if (!perm.docKind(kind)) fail(kind === "rc" ? "ใบกำกับภาษีทำได้เฉพาะธุรการ บัญชี หรือเจ้าของ" : "ใบเสนอราคาและหนังสือส่งมอบทำได้เฉพาะธุรการหรือเจ้าของ");
+  if (!perm.docs) fail("เอกสารทำได้เฉพาะส่วนใบสั่งจ้าง (ธุรการ) หรือเจ้าของ");
   if (!KINDS.includes(kind)) fail("ประเภทเอกสารไม่ถูกต้อง");
   const W = await loadWorld();
   const o = W.orders.find((x) => x.id === orderId);
@@ -81,7 +81,7 @@ export async function copyDoc(id: string) {
     select id, kind, no, order_id, data from documents where id = ${id} and company_id = ${company.id}
   `;
   if (!src) return { error: "ไม่พบเอกสาร" };
-  if (!perm.docKind(src.kind)) return { error: "ไม่มีสิทธิ์ทำเอกสารประเภทนี้" };
+  if (!perm.docs) return { error: "ไม่มีสิทธิ์ทำเอกสารประเภทนี้" };
   const d = { ...src.data, kind: src.kind, status: "draft", date: todayBkk(), no: "", replaces: src.no } as DocData;
   delete d.voidReason;
   let nid = "";
@@ -96,7 +96,7 @@ export async function copyDoc(id: string) {
 
 export async function saveDoc(id: string, d: DocData): Promise<{ error?: string }> {
   const { company, perm } = await requireCompany();
-  if (!perm.docKind(d.kind)) return { error: "ไม่มีสิทธิ์แก้เอกสารประเภทนี้" };
+  if (!perm.docs) return { error: "ไม่มีสิทธิ์แก้เอกสารประเภทนี้" };
   if (!String(d.no || "").trim()) return { error: "ใส่เลขที่เอกสาร" };
   if (!isDate(d.date)) return { error: "ใส่วันที่เอกสาร" };
   const { status: _s, voidReason: _v, ...data } = d;
@@ -119,8 +119,7 @@ export async function setDocStatus(id: string, status: "issued" | "void", reason
   if (!perm.docs) return { error: "ไม่มีสิทธิ์" };
   const [doc] = await sql<{ kind: DocKind }[]>`select kind from documents where id = ${id} and company_id = ${company.id}`;
   if (!doc) return { error: "ไม่พบเอกสาร" };
-  if (!perm.docKind(doc.kind)) return { error: "ไม่มีสิทธิ์แก้เอกสารประเภทนี้" };
-  if (doc.kind === "rc" && !perm.rcIssue) return { error: "ออกหรือยกเลิกใบกำกับภาษี/ใบเสร็จได้เฉพาะฝ่ายบัญชีหรือเจ้าของ" };
+  if (!perm.docs) return { error: "ไม่มีสิทธิ์แก้เอกสารประเภทนี้" };
   try {
     if (status === "void") {
       await sql`update documents set status = ${status}, void_reason = ${reason.trim()} where id = ${id} and company_id = ${company.id}`;
@@ -139,7 +138,7 @@ export async function deleteDoc(id: string): Promise<{ error?: string }> {
   if (!perm.docs) return { error: "ไม่มีสิทธิ์" };
   const [doc] = await sql<{ kind: DocKind }[]>`select kind from documents where id = ${id} and company_id = ${company.id}`;
   if (!doc) return { error: "ไม่พบเอกสาร" };
-  if (!perm.docKind(doc.kind)) return { error: "ไม่มีสิทธิ์ลบเอกสารประเภทนี้" };
+  if (!perm.docs) return { error: "ไม่มีสิทธิ์ลบเอกสารประเภทนี้" };
   let rows: { order_id: string | null }[];
   try {
     rows = await sql<{ order_id: string | null }[]>`

@@ -642,3 +642,38 @@ begin
     if not found then raise exception 'ไม่พบรูป หรือไม่มีสิทธิ์แก้รูปของสายนี้'; end if;
   end loop;
 end $$;
+
+-- ============================================================================
+-- v5 / 0009: ลิงก์ชวนเข้าบริษัท + คำขอรออนุมัติ + บริษัทละเจ้าของคนเดียว (รันซ้ำได้)
+-- ============================================================================
+create table if not exists public.company_join (
+  company_id uuid primary key references public.companies (id) on delete cascade,
+  code text not null unique,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.join_requests (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  user_id uuid not null,
+  email text not null default '',
+  full_name text not null default '',
+  company_name text not null default '',
+  created_at timestamptz not null default now(),
+  unique (company_id, user_id)
+);
+
+-- บริษัทหนึ่งมีเจ้าของได้คนเดียว: ตั้งคนอื่นเป็นเจ้าของเพิ่มไม่ได้ (บริษัทที่มีเจ้าของหลายคนอยู่ก่อนแล้วไม่ถูกแตะ)
+create or replace function public.only_one_owner()
+returns trigger language plpgsql as $$
+begin
+  if 'owner' = any (new.roles) and (tg_op = 'INSERT' or not ('owner' = any (old.roles)))
+     and exists (select 1 from public.company_members m
+                 where m.company_id = new.company_id and m.user_id <> new.user_id and 'owner' = any (m.roles)) then
+    raise exception 'บริษัทหนึ่งมีเจ้าของได้คนเดียว';
+  end if;
+  return null;
+end $$;
+drop trigger if exists members_only_one_owner on public.company_members;
+create trigger members_only_one_owner after insert or update on public.company_members
+  for each row execute function public.only_one_owner();

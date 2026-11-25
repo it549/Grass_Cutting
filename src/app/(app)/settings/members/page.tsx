@@ -1,10 +1,15 @@
+import { headers } from "next/headers";
 import { requireCompany } from "@/lib/context";
 import { sql } from "@/lib/db/sql";
 import { ROLE_HELP, ROLE_LABEL, ROLES, roleText, type Role } from "@/lib/types";
 import { loadAgencies } from "@/lib/orders";
 import { Flash } from "@/components/Flash";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { cancelInvite, invite, removeMember, setMember } from "./actions";
+import { CopyLink } from "@/components/CopyLink";
+import { originOf } from "@/lib/origin";
+import { thaiDate } from "@/lib/calc";
+import { getJoinCode, listJoinRequests } from "@/lib/data/join";
+import { approveJoin, cancelInvite, closeJoin, invite, rejectJoin, removeMember, resetJoin, setMember } from "./actions";
 
 export const metadata = { title: "สมาชิก · งานตัดหญ้า" };
 
@@ -76,9 +81,40 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
       `
     : [];
 
+  const [code, pend] = manage ? await Promise.all([getJoinCode(company.id), listJoinRequests(company.id)]) : [null, []];
+  const origin = originOf(await headers());
+
   return (
     <>
       <Flash {...sp} />
+      {pend.length > 0 && (
+        <div className="card pend" style={{ marginBottom: 14 }}>
+          <div className="serif h3">รออนุมัติเข้าบริษัท ({pend.length})</div>
+          <p className="small muted" style={{ marginTop: 0 }}>คนเหล่านี้กดลิงก์ชวนแล้วสมัครเข้ามา ยังไม่เห็นข้อมูลบริษัทจนกว่าคุณจะเลือกบทบาทแล้วกดอนุมัติ</p>
+          {pend.map((r) => (
+            <div key={r.id} className="joinreq">
+              <div>
+                <b>{r.full_name || r.email}</b>
+                <div className="small muted">{r.email}</div>
+                <div className="small muted">ขอเมื่อ {thaiDate(String(r.created_at))}</div>
+              </div>
+              <div>
+                <form action={approveJoin}>
+                  <input type="hidden" name="id" value={r.id} />
+                  <input type="hidden" name="who" value={r.full_name || r.email} />
+                  <RoleBoxes value={["field"]} owner={false} />
+                  <ScopeBoxes value={[]} ags={ags} />
+                  <div className="acts" style={{ marginTop: 8 }}><button className="btn sm dk" type="submit">อนุมัติ</button></div>
+                </form>
+                <form action={rejectJoin} style={{ marginTop: 6 }}>
+                  <input type="hidden" name="id" value={r.id} />
+                  <ConfirmButton className="link bad" message={`ปฏิเสธคำขอของ ${r.email}?`}>ปฏิเสธ</ConfirmButton>
+                </form>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="two">
         <div className="card">
           <div className="serif h3">สมาชิกของ {company.name}</div>
@@ -129,8 +165,26 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
 
         {manage && (
           <div>
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="serif h3">ลิงก์ชวนเข้าบริษัท</div>
+              {code ? (
+                <>
+                  <p className="small muted" style={{ margin: 0 }}>ส่งลิงก์นี้เข้ากลุ่ม LINE ได้เลย คนที่กดแล้วสมัครจะขึ้นในรายการรออนุมัติ และยังไม่เห็นข้อมูลจนกว่าคุณจะอนุมัติ</p>
+                  <CopyLink url={`${origin}/join/${code}`} />
+                  <div className="acts">
+                    <form action={resetJoin}><ConfirmButton className="btn sm" message="สร้างลิงก์ใหม่? ลิงก์เดิมที่ส่งไปแล้วจะใช้ไม่ได้">สร้างลิงก์ใหม่</ConfirmButton></form>
+                    <form action={closeJoin}><ConfirmButton className="link bad" message="ปิดลิงก์ชวน? ลิงก์เดิมจะใช้ไม่ได้">ปิดลิงก์</ConfirmButton></form>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="small muted" style={{ marginTop: 0 }}>สร้างลิงก์แล้วส่งเข้ากลุ่ม LINE ให้คนงานกดสมัครเอง ไม่ต้องพิมพ์อีเมลทีละคน ทุกคนต้องรอคุณอนุมัติก่อน</p>
+                  <form action={resetJoin}><button className="btn dk" type="submit">สร้างลิงก์ชวน</button></form>
+                </>
+              )}
+            </div>
             <form action={invite} className="card">
-              <div className="serif h3">เชิญคนเข้าบริษัท</div>
+              <div className="serif h3">เชิญด้วยอีเมล</div>
               <div className="stack">
                 <label>อีเมล<input name="email" type="email" required placeholder="name@example.com" /></label>
                 <div>
@@ -145,6 +199,8 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
             {(invites ?? []).length > 0 && (
               <div className="card" style={{ marginTop: 14 }}>
                 <div className="serif h3">คำเชิญที่รอ</div>
+                <p className="small muted" style={{ margin: 0 }}>ส่งลิงก์นี้ให้คนที่เชิญ แล้วสมัครด้วยอีเมลที่เชิญไว้</p>
+                <CopyLink url={`${origin}/login?mode=signup&invite=1`} />
                 {(invites ?? []).map((i) => (
                   <form key={i.id} action={cancelInvite} className="inv">
                     <input type="hidden" name="id" value={i.id} />
