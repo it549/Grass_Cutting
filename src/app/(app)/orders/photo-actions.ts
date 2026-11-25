@@ -134,7 +134,8 @@ export async function setPhotoLR(agencyId: string, on: boolean): Promise<R> {
 
 /** ความยาวสาย (กม.) ใช้ดูความคืบหน้าเท่านั้น ไม่เกี่ยวกับ ตร.ม. ที่คิดเงิน */
 export async function setRouteLength(routeId: string, km: string): Promise<R> {
-  const { userId } = await requireCompany();
+  const { userId, perm } = await requireCompany();
+  if (!perm.roads) return { error: "ความยาวสายแก้ได้เฉพาะเจ้าของ (CEO)" };
   const t = String(km ?? "").replace(/,/g, "").trim();
   const v = t === "" ? null : Number(t);
   if (v !== null && (!Number.isFinite(v) || v < 0)) return { error: "ใส่ความยาวเป็นตัวเลข กม." };

@@ -12,7 +12,7 @@ export default async function RoadsPage({ searchParams }: { searchParams: Promis
   return (
     <RoadsView
       W={W}
-      can={{ edit: perm.orders, len: perm.work, prices: perm.prices }}
+      can={{ edit: perm.roads, len: false, prices: perm.prices }}
       canRead={aiConfigured()}
       init={{ ag: sp.ag, h: sp.h, sel: sp.g }}
     />

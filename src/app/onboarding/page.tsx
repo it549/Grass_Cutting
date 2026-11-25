@@ -10,7 +10,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
   const { msg, add } = await searchParams;
   const ctx = await getContext();
   if (ctx.memberships.length && !add) redirect("/");
-  if (!(await canCreateCompany(ctx.userId, ctx.email))) {
+  if (!(await canCreateCompany(ctx.userId))) {
     return (
       <main className="auth">
         <div className="auth-card">

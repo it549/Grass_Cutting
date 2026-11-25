@@ -242,3 +242,11 @@ details[open] > summary::before { content: "▾ "; }
 .scopebox { margin-top: 6px; }
 .scopebox summary { cursor: pointer; color: var(--mute); }
 .scopeag { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 4px 0; border-top: 1px dashed var(--line); }
+
+/* v5: ลิงก์ชวนเข้าบริษัท */
+.copyl { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.copyl input { flex: 1; min-width: 0; font-size: 12.5px; }
+.joinreq { border-top: 1px solid var(--line2); padding: 12px 0; display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 12px; }
+.joinreq:first-of-type { border-top: 0; }
+.card.pend { border-color: #e9c46a; }
+.pendl { margin: 8px 0 14px; padding-left: 18px; line-height: 1.8; }

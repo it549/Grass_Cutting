@@ -6,13 +6,14 @@ import { loadDocs, loadWorld } from "@/lib/world";
 import { docTodos, poStep } from "@/lib/docboard";
 import { currentRound, hasPo, weekOf, workIndex } from "@/lib/model";
 import { todayBkk } from "@/lib/calc";
+import { pendingJoins } from "@/lib/data/join";
 
-export type Badges = { docs: number; pos: number; crew: boolean };
+export type Badges = { docs: number; pos: number; crew: boolean; join: number };
 
 /** ตัวเลขที่เมนูซ้าย: เอกสารค้างของงวดปัจจุบัน · ใบสั่งจ้างที่ยังทำเอกสารไม่ครบ · ค่าแรงสัปดาห์นี้ที่ยังไม่จ่าย */
 export async function navBadges(): Promise<Badges> {
   const { company, perm, who } = await requireCompany();
-  const out: Badges = { docs: 0, pos: 0, crew: false };
+  const out: Badges = { docs: 0, pos: 0, crew: false, join: 0 };
   try {
     const jobs: Promise<void>[] = [];
     if (perm.docs) {
@@ -36,6 +37,7 @@ export async function navBadges(): Promise<Badges> {
         out.crew = [...worked].some((id) => !paid.has(id));
       })());
     }
+    if (perm.members) jobs.push(pendingJoins(company.id).then((n) => { out.join = n; }));
     await Promise.all(jobs);
   } catch {
     // ตัวเลขที่เมนูเป็นแค่ตัวช่วย ถ้าอ่านไม่ได้ก็ไม่แสดง

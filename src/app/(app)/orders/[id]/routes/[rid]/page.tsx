@@ -45,7 +45,7 @@ export default async function RoutePage({ params }: { params: Promise<{ id: stri
       photos={photos.map((p) => ({ id: p.id, kind: p.kind, slot: p.slot, url: urls[p.path] ?? "", date: p.taken_date ?? "", time: p.taken_time ?? "", name: p.name ?? "", sig: p.sig ?? "" }))}
       days={days.map((d) => ({ ...d, crew: crewN[d.date] ?? 0 }))}
       nav={{ prev: nb(o.routes[i - 1]), next: nb(o.routes[i + 1]), pos: i + 1, n: o.routes.length }}
-      can={{ work: perm.work, orders: perm.orders, prices: perm.prices, daily: perm.daily }}
+      can={{ work: perm.work, orders: perm.orders, roads: perm.roads, prices: perm.prices, daily: perm.daily }}
     />
   );
 }

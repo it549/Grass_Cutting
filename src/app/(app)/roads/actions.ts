@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { requireCompany } from "@/lib/context";
 import { sql } from "@/lib/db/sql";
-import { setRoadLength } from "@/lib/data/routes";
 import { cNorm } from "@/lib/model";
 
 export type RoadIn = { id?: string; agency_id: string; hmd: string; code: string; name: string; amp: string; len_km: number | null; map_url?: string; note?: string };
@@ -27,26 +26,8 @@ const errText = (e: unknown) => {
 
 /** เพิ่ม/แก้หลายสายพร้อมกัน (ทะเบียนสายทาง) */
 export async function saveRoads(rows: RoadIn[]): Promise<R> {
-  const { userId, company, perm } = await requireCompany();
-  if (!perm.orders) {
-    // คนหน้างาน: แก้ได้แค่ความยาวของสายที่มีอยู่แล้ว
-    if (!perm.work) return { ok: false, error: "เฉพาะธุรการหรือเจ้าของที่แก้ทะเบียนสายทางได้" };
-    let n = 0;
-    for (const r of rows) {
-      if (!isUuid(r.id)) return { ok: false, error: "เพิ่มสายใหม่ได้เฉพาะธุรการหรือเจ้าของ" };
-      const v = clean(r);
-      if (v.len_km != null && v.len_km < 0) return { ok: false, error: `${v.code}: กม. ติดลบไม่ได้` };
-      try {
-        await setRoadLength(userId, r.id, v.len_km);
-      } catch (e) {
-        revalidatePath("/", "layout");
-        return { ok: false, error: `บันทึกได้ ${n} สาย แล้วติดที่ ${v.code}: ${errText(e)}` };
-      }
-      n++;
-    }
-    revalidatePath("/", "layout");
-    return { ok: true, n };
-  }
+  const { company, perm } = await requireCompany();
+  if (!perm.roads) return { ok: false, error: "สายทางแก้ได้เฉพาะเจ้าของ (CEO)" };
   const L = rows.map((r) => ({ id: isUuid(r.id) ? r.id : undefined, ...clean(r) })).filter((r) => r.code);
   if (!L.length) return { ok: false, error: "ยังไม่มีแถวที่จะบันทึก" };
   const seen = new Set<string>();
@@ -82,20 +63,10 @@ export async function saveRoads(rows: RoadIn[]): Promise<R> {
 
 /** แก้สายเดียว (ช่องด้านขวาของทะเบียน) */
 export async function updateRoad(id: string, r: RoadIn): Promise<R> {
-  const { userId, company, perm } = await requireCompany();
+  const { company, perm } = await requireCompany();
   if (!isUuid(id)) return { ok: false, error: "ไม่พบสายทาง" };
   const v = clean(r);
-  if (!perm.orders) {
-    // คนหน้างานใส่ได้แค่ความยาว
-    if (!perm.work) return { ok: false, error: "ไม่มีสิทธิ์แก้ทะเบียน" };
-    try {
-      await setRoadLength(userId, id, v.len_km);
-    } catch (e) {
-      return { ok: false, error: errText(e) };
-    }
-    revalidatePath("/", "layout");
-    return { ok: true };
-  }
+  if (!perm.roads) return { ok: false, error: "สายทางแก้ได้เฉพาะเจ้าของ (CEO)" };
   if (!v.code) return { ok: false, error: "เลขสายว่างไม่ได้" };
   if (!isUuid(v.agency_id)) return { ok: false, error: "เลือกแขวง" };
   if (v.map_url && !/^https?:\/\//i.test(v.map_url)) return { ok: false, error: "ลิงก์ต้องขึ้นต้นด้วย https://" };
@@ -110,7 +81,7 @@ export async function updateRoad(id: string, r: RoadIn): Promise<R> {
 
 export async function deleteRoad(id: string): Promise<R> {
   const { company, perm } = await requireCompany();
-  if (!perm.orders) return { ok: false, error: "ไม่มีสิทธิ์ลบ" };
+  if (!perm.roads) return { ok: false, error: "สายทางแก้ได้เฉพาะเจ้าของ (CEO)" };
   if (!isUuid(id)) return { ok: false, error: "ไม่พบสายทาง" };
   const [{ count }] = await sql<{ count: number }[]>`select count(*) as count from routes where road_id = ${id}`;
   if (count) return { ok: false, error: `สายนี้อยู่ใน ${count} งวดแล้ว ลบไม่ได้ (เอาออกจากงวดก่อน)` };
@@ -122,7 +93,7 @@ export async function deleteRoad(id: string): Promise<R> {
 /** ย้ายหลายสายไปหมวดอื่น (ในแขวงเดิมหรือแขวงอื่นของบริษัท) */
 export async function moveRoads(ids: string[], agencyId: string, rawHmd: string): Promise<R> {
   const { company, perm } = await requireCompany();
-  if (!perm.orders) return { ok: false, error: "เฉพาะธุรการหรือเจ้าของที่ย้ายหมวดได้" };
+  if (!perm.roads) return { ok: false, error: "สายทางแก้ได้เฉพาะเจ้าของ (CEO)" };
   const L = [...new Set((ids ?? []).filter(isUuid))];
   if (!L.length) return { ok: false, error: "ยังไม่ได้เลือกสาย" };
   if (!isUuid(agencyId)) return { ok: false, error: "เลือกแขวง" };
@@ -154,7 +125,7 @@ export async function moveRoads(ids: string[], agencyId: string, rawHmd: string)
 /** เพิ่มหมวดเข้าแขวง */
 export async function addHmd(agencyId: string, raw: string): Promise<R> {
   const { company, perm } = await requireCompany();
-  if (!perm.orders) return { ok: false, error: "ไม่มีสิทธิ์" };
+  if (!perm.roads) return { ok: false, error: "สายทางแก้ได้เฉพาะเจ้าของ (CEO)" };
   if (!isUuid(agencyId)) return { ok: false, error: "ไม่พบแขวง" };
   const h = String(raw ?? "").trim().replace(/^หมวด(บำรุงทางหลวงชนบท)?\s*/, "");
   if (!h) return { ok: false, error: "ใส่ชื่อหมวด" };

@@ -32,7 +32,7 @@ const NAV: Item[] = [
   { k: "docs", href: "/docs", label: "เอกสาร", match: "/docs", show: "docs", badge: "docs" },
   { group: "ข้อมูลหลัก" },
   { k: "roads", href: "/roads", label: "สายทาง", match: "/roads" },
-  { k: "settings", href: "/settings/company", label: "ตั้งค่า", match: "/settings" },
+  { k: "settings", href: "/settings/company", label: "ตั้งค่า", match: "/settings", badge: "join" },
 ];
 
 const Icon = ({ k }: { k: string }) => <svg viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: ICO[k] }} />;
@@ -41,7 +41,7 @@ const Icon = ({ k }: { k: string }) => <svg viewBox="0 0 24 24" dangerouslySetIn
 function Badge({ p, k }: { p: Promise<Badges>; k: keyof Badges }) {
   const v = use(p)[k];
   if (!v) return null;
-  return <span className="bd">{k === "crew" ? "รอจ่าย" : k === "pos" ? `${v} ค้าง` : String(v)}</span>;
+  return <span className="bd">{k === "crew" ? "รอจ่าย" : k === "pos" ? `${v} ค้าง` : k === "join" ? `${v} รออนุมัติ` : String(v)}</span>;
 }
 
 /** แถบเมนูซ้าย แบบเดียวกับระบบบน claude.ai */
@@ -68,12 +68,12 @@ export function Sidebar({ can, company, footer, badges }: { can: NavCan; company
   );
 }
 
-export function SettingsTabs({ owner = false }: { owner?: boolean }) {
+export function SettingsTabs({ owner = false, pending = 0 }: { owner?: boolean; pending?: number }) {
   const path = usePathname();
   const tabs = [
     ["/settings/company", "บริษัทและหัวกระดาษ"],
     ["/settings/agencies", "แขวงและหมวด"],
-    ["/settings/members", "สมาชิก"],
+    ["/settings/members", pending ? `สมาชิก · รออนุมัติ ${pending}` : "สมาชิก"],
     ...(owner ? [["/settings/import", "ย้ายข้อมูล"]] : []),
   ];
   return (

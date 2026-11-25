@@ -34,9 +34,9 @@ export type RouteV = {
   rate: number | null; done: boolean | null; done_date: string | null; length_km: number | null; created_at: string;
   road_id: string | null; in_po: boolean;
 };
-/** routes_v: ราคาเห็นเฉพาะธุรการ/บัญชี · ความยาวเอาจากทะเบียนก่อน · เฉพาะในขอบเขต */
+/** routes_v: ราคาเห็นเฉพาะธุรการ · ความยาวเอาจากทะเบียนก่อน · เฉพาะในขอบเขต */
 export async function routesV(w: Who, where: Frag = none(), order: Frag = sql`order by r.seq`) {
-  const seeRate = hasAnyRole(w.roles, ["office", "account"]);
+  const seeRate = hasAnyRole(w.roles, ["office"]);
   const rows = await sql<(RouteV & { agency_id: string; hmd: string })[]>`
     select r.id, r.order_id, r.company_id, r.seq, r.code, r.descr, r.area, r.rate, r.done, r.done_date,
            coalesce(g.len_km, r.length_km) as length_km, r.created_at, r.road_id, r.in_po, o.agency_id, o.hmd

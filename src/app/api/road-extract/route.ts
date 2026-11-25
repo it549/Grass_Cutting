@@ -16,7 +16,7 @@ const toB64 = (buf: ArrayBuffer) => {
 // ข้อความ/รูป/PDF รายชื่อสายทาง → AI อ่านเป็นรายการสาย (ยังไม่บันทึก ให้ผู้ใช้ตรวจก่อน)
 export async function POST(req: NextRequest) {
   const { perm } = await requireCompany();
-  if (!perm.orders) return NextResponse.json({ error: "เฉพาะธุรการหรือเจ้าของ" }, { status: 403 });
+  if (!perm.roads) return NextResponse.json({ error: "สายทางแก้ได้เฉพาะเจ้าของ (CEO)" }, { status: 403 });
   const form = await req.formData();
   const text = String(form.get("text") ?? "").slice(0, 60000);
   const hmds = String(form.get("hmds") ?? "").split("|").filter(Boolean);
