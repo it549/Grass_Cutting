@@ -1,7 +1,7 @@
 // สร้างหน้ากระดาษ A4 (794×1123 px) เป็น DOM สำหรับดูตัวอย่างและแปลงเป็น PDF — ใช้ในเบราว์เซอร์เท่านั้น
 import { num } from "@/lib/calc";
 import { docTotals, itAmt, type DocData, type Head } from "@/lib/docs";
-import { PF, R_ST, kmTxt, stations, type PfKind, type RInfo } from "@/lib/model";
+import { PF, R_ST, kmTxt, noSunday, stations, type PfKind, type RInfo } from "@/lib/model";
 import { E, WD, bahtText, dL, dS, fmt, fmt0, fmtP, fmtQ, weekday } from "./fmt";
 
 /** แปลงที่เก็บไฟล์ (เช่นโลโก้) เป็น URL ที่โหลดได้ */
@@ -254,7 +254,7 @@ const PAYBY_T: Record<string, string> = { cash: "เงินสด", pp: "พ�
 
 /** ใบสำคัญจ่ายค่าแรงรวมทั้งสัปดาห์ (คนละแถว ให้เซ็นรับเงิน) */
 export function voucherPages(C: PackCompany, wk: string[], rows0: VoucherRow[], jobs: string, host: HTMLElement) {
-  const P = rows0.filter((p) => p.units || p.ot), showSun = P.some((p) => p.days[wk[6]]), days = showSun ? wk : wk.slice(0, 6);
+  const P = rows0.filter((p) => p.units || p.ot), showSun = P.some((p) => p.days[wk[1]]), days = showSun ? wk : noSunday(wk);
   const tot = (f: (p: VoucherRow) => number) => P.reduce((s, p) => s + f(p), 0);
   const dn = (d: string) => +d.slice(8, 10);
   const first = pgHead(C.head, "ใบสำคัญจ่ายค่าแรงรายวัน", "Daily Wage Payment Voucher") +
@@ -274,14 +274,14 @@ export function voucherEach(C: PackCompany, wk: string[], rows0: VoucherRow[], h
     const ds = wk.filter((d) => p.days[d]);
     const how = p.paid?.method ? PAYBY_T[p.paid.method] + (p.paid.method !== "cash" && p.payText && !/^เงินสด/.test(p.payText) ? " " + p.payText.replace(/^พร้อมเพย์ /, "") : "") : p.payText || "เงินสด";
     const first = pgHead(C.head, "ใบสำคัญจ่ายค่าแรง", "Wage Payment Voucher") +
-      `<div class="bzparty"><div class="bzbox"><div class="lb">ผู้รับเงิน</div><b>${E(p.name)}</b>${p.nick ? `<div>(${E(p.nick)})</div>` : ""}<div>รับเงินทาง ${E(how)}</div></div><div class="bzbox"><div class="bzkv"><span>ช่วงวันที่</span><b>${E(dS(wk[0]))} – ${E(dS(wk[5]))}</b><span>วันที่จ่าย</span><b>${E(p.paid ? dS(p.paid.pay_date) : "")}</b><span>จำนวนวัน</span><b>${vUnits(p.units)}</b></div></div></div>`;
+      `<div class="bzparty"><div class="bzbox"><div class="lb">ผู้รับเงิน</div><b>${E(p.name)}</b>${p.nick ? `<div>(${E(p.nick)})</div>` : ""}<div>รับเงินทาง ${E(how)}</div></div><div class="bzbox"><div class="bzkv"><span>ช่วงวันที่</span><b>${E(dS(wk[0]))} – ${E(dS(wk[6]))}</b><span>วันที่จ่าย</span><b>${E(p.paid ? dS(p.paid.pay_date) : "")}</b><span>จำนวนวัน</span><b>${vUnits(p.units)}</b></div></div></div>`;
     const thead = `<table class="bzitems"><colgroup><col style="width:8%"><col><col style="width:16%"><col style="width:16%"><col style="width:18%"></colgroup><thead><tr><th>ลำดับ</th><th>วันที่</th><th>มาทำงาน</th><th>OT/เบี้ยเลี้ยง</th><th>จำนวนเงิน</th></tr></thead><tbody></tbody></table>`;
     const rows = ds.map((d, i) => { const c = p.days[d]; return `<tr><td class="c">${i + 1}</td><td>${E(WD[weekday(d)] + " " + dS(d))}</td><td class="c">${c.half ? "ครึ่งวัน" : "เต็มวัน"}</td><td class="n">${num(c.ot) ? fmt(c.ot) : ""}</td><td class="n">${fmt(vPay(c))}</td></tr>`; });
     rows.push(`<tr class="tt"><td></td><td>รวมค่าแรง + OT</td><td class="c">${vUnits(p.units)} วัน</td><td class="n">${p.ot ? fmt(p.ot) : ""}</td><td class="n">${fmt(p.gross + p.ot)}</td></tr>`);
     if (p.ded) rows.push(`<tr><td></td><td>หักเงินเบิกล่วงหน้า</td><td></td><td></td><td class="n">−${fmt(p.ded)}</td></tr>`);
     rows.push(`<tr class="tt"><td></td><td>รับสุทธิ</td><td></td><td></td><td class="n">${fmt(p.net)}</td></tr>`);
     const tail = `<div class="bzwords">(${E(bahtText(p.net))})</div>${p.left > 0 ? `<div class="bznote">เงินเบิกคงค้างยกไปหักครั้งถัดไป ${fmt(p.left)} บาท</div>` : ""}${signHtml([{ label: "ผู้รับเงิน", name: p.name }, { label: "ผู้จ่ายเงิน", name: "" }])}`;
-    out.push(...paginate(host, { first, cont: `<div class="bzcont">ใบสำคัญจ่ายค่าแรง ${E(p.name)} (ต่อ)</div>`, thead, rows, tail, foot: `ใบสำคัญจ่ายค่าแรง ${p.name} · ${dS(wk[0])} – ${dS(wk[5])}` }));
+    out.push(...paginate(host, { first, cont: `<div class="bzcont">ใบสำคัญจ่ายค่าแรง ${E(p.name)} (ต่อ)</div>`, thead, rows, tail, foot: `ใบสำคัญจ่ายค่าแรง ${p.name} · ${dS(wk[0])} – ${dS(wk[6])}` }));
   }
   return out;
 }

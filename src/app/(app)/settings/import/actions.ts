@@ -6,6 +6,7 @@ import { sql } from "@/lib/db/sql";
 import { setRouteStatus } from "@/lib/data/routes";
 import { docTotals, type DocData } from "@/lib/docs";
 import { num } from "@/lib/calc";
+import { weekOf } from "@/lib/model";
 
 /* รูปแบบข้อมูลส่งออกจากระบบเดิม (claude.ai): แต่ละ collection เป็นรายการ {id, ...data} */
 type Old = Record<string, unknown> & { id: string };
@@ -219,10 +220,11 @@ export async function importOld(x: OldExport): Promise<ImportResult> {
     for (const p of x.pay ?? []) {
       const cid = crewId(p.cid, p.name);
       if (!cid || !isDate(p.wk) || !isDate(p.date)) { pSkip++; continue; }
-      const [ex] = await sql`select crew_id from crew_pays where company_id = ${company.id} and week_start = ${p.wk as string} and crew_id = ${cid}`;
+      const wk0 = weekOf(p.wk)[0]; // ระบบเดิมเก็บเป็นวันจันทร์ · ที่นี่รอบเริ่มวันเสาร์ก่อนหน้า
+      const [ex] = await sql`select crew_id from crew_pays where company_id = ${company.id} and week_start = ${wk0} and crew_id = ${cid}`;
       if (ex) { pSkip++; continue; }
       const { error } = await q(() => sql`insert into crew_pays ${sql({
-        company_id: company.id, week_start: p.wk as string, crew_id: cid, name: s(p.name), pay_date: p.date as string, method: PAYBY.includes(s(p.method)) ? s(p.method) : "cash",
+        company_id: company.id, week_start: wk0, crew_id: cid, name: s(p.name), pay_date: p.date as string, method: PAYBY.includes(s(p.method)) ? s(p.method) : "cash",
         days: num(p.days), gross: num(p.gross), ot: num(p.ot), ded: num(p.ded), net: num(p.net), created_by: userId,
       })}`);
       if (error) log.push(`จ่ายค่าแรง ${p.wk}: ${error.message}`); else pAdd++;

@@ -5,6 +5,7 @@ import { requireCompany } from "@/lib/context";
 import { sql } from "@/lib/db/sql";
 import { addCrew as addCrewDb, saveDaily as saveDailyDb } from "@/lib/data/daily";
 import { num } from "@/lib/calc";
+import { weekOf } from "@/lib/model";
 
 type R = { error?: string };
 const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -92,10 +93,7 @@ export async function removeDailyCrew(date: string, crewId: string): Promise<R &
   try {
     const [k] = await sql<{ name: string }[]>`select name from crew where id = ${crewId} and company_id = ${company.id}`;
     if (!k) return { error: "ไม่พบคนงาน" };
-    const d = new Date(date + "T00:00:00Z"), dow = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() - (dow - 1));
-    const ws = d.toISOString().slice(0, 10);
-    const [paidNow] = await sql`select 1 from crew_pays where company_id = ${company.id} and week_start = ${ws} and crew_id = ${crewId}`;
+    const [paidNow] = await sql`select 1 from crew_pays where company_id = ${company.id} and week_start = ${weekOf(date)[0]} and crew_id = ${crewId}`;
     if (paidNow) return { error: `${k.name} จ่ายค่าแรงสัปดาห์นี้แล้ว ยกเลิกการจ่ายในหน้าคนงานและค่าแรงก่อน` };
 
     const me = sql.json([{ id: crewId, on: true }]);

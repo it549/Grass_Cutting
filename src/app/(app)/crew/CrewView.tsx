@@ -11,7 +11,7 @@ import { crewPages, registerUrls, voucherEach, voucherPages, type PackCompany, t
 import { fileSafe, monthTitle } from "@/lib/print/fmt";
 import { downloadBlob, xlsxBlob } from "@/lib/xlsx";
 import { type LogLite, type PayLite, type WeekRow, advLeft, fuelCycles, weekPay } from "@/lib/crewpay";
-import { type Advance, type Car, type CrewRec, type Fuel, PAYBY, WD, addDaysIso, dS, dShort, fmt0, fmtKm, fmtN, num, payText, unitOf, wdOf, weekOf } from "@/lib/model";
+import { type Advance, type Car, type CrewRec, type Fuel, PAYBY, WD, addDaysIso, dS, dShort, fmt0, fmtKm, fmtN, noSunday, num, payDateOf, payText, unitOf, wdOf, weekOf } from "@/lib/model";
 import { deleteAdvance, saveAdvance } from "../daily/actions";
 import { newCrew, payCrew, saveCars, unpayCrew, updateCrew, type CrewPatch } from "./actions";
 
@@ -82,14 +82,16 @@ const delAdv = async (id: string) => { const r = await deleteAdvance(id); if (r.
 function PayTab({ tabs, day, today, crew, logs, adv, pays, jobs, head, logo }: Props) {
   const wk = weekOf(day), wk0 = wk[0];
   const P = useMemo(() => weekPay(wk, logs, adv, pays, crew), [wk0, logs, adv, pays, crew]); // eslint-disable-line react-hooks/exhaustive-deps
-  const showSun = P.some((p) => p.days[wk[6]]), days = showSun ? wk : wk.slice(0, 6);
+  const showSun = P.some((p) => p.days[wk[1]]), days = showSun ? wk : noSunday(wk);
   const tot = (f: (p: WeekRow) => number) => P.reduce((s, p) => s + f(p), 0);
   const crewOf = (id: string) => crew.find((c) => c.id === id);
   const methodOf = (p: WeekRow) => p.paid?.method ?? crewOf(p.cid)?.pay_by ?? "cash";
   const paidN = P.filter((p) => p.paid).length, paidAmt = P.filter((p) => p.paid).reduce((s, p) => s + p.net, 0);
   const cashAmt = P.filter((p) => methodOf(p) === "cash").reduce((s, p) => s + p.net, 0);
   const advs = adv.filter((a) => a.adv_date >= wk0 && a.adv_date <= wk[6]).sort((a, b) => a.adv_date.localeCompare(b.adv_date));
-  const sat = wk[5], payDay = today >= wk0 && today <= wk[6] ? today : sat;
+  const fri = wk[6], sat = payDateOf(wk0);
+  // วันที่จ่ายตั้งต้น: จ่ายก่อนกำหนดใช้วันนี้ นอกนั้นใช้วันเสาร์วันจ่าย · วันที่เบิกตั้งต้นต้องอยู่ในรอบ
+  const payDay = today >= wk0 && today <= sat ? today : sat, advDay = today >= wk0 && today <= fri ? today : fri;
   const [ed, setEd] = useState<string | null>(null);
   const [m, setM] = useState("cash");
   const [pd, setPd] = useState(payDay);
@@ -110,9 +112,9 @@ function PayTab({ tabs, day, today, crew, logs, adv, pays, jobs, head, logo }: P
     if (r.error) toast(r.error, true); else toast(`บันทึกจ่าย ${left.length} คนแล้ว`);
   };
   const vrows: VoucherRow[] = P.map((p) => { const R = crewOf(p.cid); return { ...p, nick: R?.nick, payText: payText(R), paid: p.paid ? { pay_date: p.paid.pay_date, method: p.paid.method } : null }; });
-  const go = (k: number) => `/crew?tab=pay&d=${addDaysIso(wk0, k * 7 + 5)}`;
+  const go = (k: number) => `/crew?tab=pay&d=${addDaysIso(wk0, k * 7 + 6)}`;
   return <>
-    <Top crumb={crumb} title={`จ่ายค่าแรง ${dShort(wk[0])} – ${dS(wk[5])}`} sub={`ทำงาน จ.–ส. · จ่ายเย็นวันเสาร์ ${dS(sat)}`}
+    <Top crumb={crumb} title={`จ่ายค่าแรง ${dShort(wk0)} – ${dS(fri)}`} sub={`รอบ ส.–ศ. · ตัดรอบวันศุกร์ · จ่ายวันเสาร์ ${dS(sat)}`}
       acts={<><Tabs tabs={tabs} tab="pay" day={day} /><Link className="btn" href={go(-1)}>‹ สัปดาห์ก่อน</Link><Link className="btn" href={go(1)}>สัปดาห์ถัดไป ›</Link></>} />
     <div className="body">
       <div className="stats">
@@ -125,8 +127,8 @@ function PayTab({ tabs, day, today, crew, logs, adv, pays, jobs, head, logo }: P
         <div className="ch"><h3>ค่าแรงรายคน</h3>
           <div className="acts">
             {P.length ? <>
-              <PdfButton className="btn sm" label="ใบสำคัญจ่าย PDF (รวม)" filename={fileSafe(`ใบสำคัญจ่ายค่าแรง-${wk[0]}-ถึง-${wk[5]}.pdf`)} build={(h) => { registerUrls(logo); return voucherPages(head, wk, vrows, jobs, h); }} />
-              <PdfButton className="btn sm" label="PDF แยกรายคน" filename={fileSafe(`ใบสำคัญจ่ายรายคน-${wk[0]}-ถึง-${wk[5]}.pdf`)} build={(h) => { registerUrls(logo); return voucherEach(head, wk, vrows, h); }} />
+              <PdfButton className="btn sm" label="ใบสำคัญจ่าย PDF (รวม)" filename={fileSafe(`ใบสำคัญจ่ายค่าแรง-${wk0}-ถึง-${fri}.pdf`)} build={(h) => { registerUrls(logo); return voucherPages(head, wk, vrows, jobs, h); }} />
+              <PdfButton className="btn sm" label="PDF แยกรายคน" filename={fileSafe(`ใบสำคัญจ่ายรายคน-${wk0}-ถึง-${fri}.pdf`)} build={(h) => { registerUrls(logo); return voucherEach(head, wk, vrows, h); }} />
             </> : <><button className="btn sm" type="button" disabled>ใบสำคัญจ่าย PDF (รวม)</button><button className="btn sm" type="button" disabled>PDF แยกรายคน</button></>}
           </div>
         </div>
@@ -165,7 +167,7 @@ function PayTab({ tabs, day, today, crew, logs, adv, pays, jobs, head, logo }: P
       <div className="row2" style={{ marginTop: 16 }}>
         <div className="card">
           <div className="ch"><h3>เบิกล่วงหน้าสัปดาห์นี้ <span className="m">{advs.length} รายการ</span></h3><button className="btn sm" type="button" onClick={() => setAdvOpen((v) => !v)}>+ บันทึกเบิก</button></div>
-          {advOpen ? <div className="cb" style={{ paddingBottom: 0 }}><AdvBox crew={crew} date={payDay} onClose={() => setAdvOpen(false)} /></div> : null}
+          {advOpen ? <div className="cb" style={{ paddingBottom: 0 }}><AdvBox crew={crew} date={advDay} onClose={() => setAdvOpen(false)} /></div> : null}
           {advs.length ? <div className="tscroll"><table className="tb"><tbody><tr><th>วันที่</th><th>คนงาน</th><th>หมายเหตุ</th><th className="n">จำนวน</th><th /></tr>
             {advs.map((a) => <tr key={a.id}><td className="small">{WD[wdOf(a.adv_date)]}. {dShort(a.adv_date)}</td><td><b>{crewOf(a.crew_id)?.name ?? "?"}</b></td><td className="small muted">{a.note}</td><td className="n num">{fmt(a.amt)}</td><td className="n"><Armed label="ลบ" armedLabel="กดอีกครั้ง" onGo={() => delAdv(a.id)} /></td></tr>)}
           </tbody></table></div> : <div className="emp">ไม่มีการเบิกสัปดาห์นี้</div>}

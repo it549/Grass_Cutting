@@ -8,7 +8,7 @@ export type WeekRow = {
   carry: number; advWk: number; ded: number; net: number; left: number; paid: PayLite | null;
 };
 
-/** สรุปค่าแรงรายคนของสัปดาห์ (wk = จันทร์..อาทิตย์) */
+/** สรุปค่าแรงรายคนของสัปดาห์ (wk = เสาร์..ศุกร์) */
 export function weekPay(wk: string[], logs: LogLite[], adv: Advance[], pays: PayLite[], crew: CrewRec[]): WeekRow[] {
   const wk0 = wk[0], end = wk[6], P = new Map<string, WeekRow>();
   const nameOf = (id: string) => crew.find((c) => c.id === id)?.name || "(ไม่มีชื่อ)";

@@ -87,6 +87,23 @@
   .ax .rw2 .x { min-width: 32px; min-height: 32px; }
 }
 
+/* บันทึกรายวัน: การ์ดคนงานแคบกว่า 600px ช่องชื่อจะไม่พอ → แถวคนงานเป็นสองบรรทัด ให้เห็นชื่อเต็ม
+   :where() คุมน้ำหนัก selector ไม่ให้ทับขนาดสำหรับมือถือ (บล็อก ≤640px ข้างล่าง) */
+@media screen {
+  .ax .d3 > .dcard:first-child { container: crew / inline-size; }
+  @container crew (max-width: 599px) {
+    .ax .crw:where(:not(.addf)) { grid-template-columns: 30px minmax(0, 1fr) 54px 48px; grid-template-areas: "av nm nm amt" "av seg seg ot"; row-gap: 6px; }
+    .ax .crw.ed { grid-template-columns: 30px minmax(0, 1fr) 54px 48px 34px; grid-template-areas: "av nm nm amt rm" "av seg seg ot ot"; }
+    .ax .crw:where(:not(.addf)) > .av { grid-area: av; align-self: start; }
+    .ax .crw:where(:not(.addf)) > .nm { grid-area: nm; }
+    .ax .crw:where(:not(.addf)) > .seg { grid-area: seg; }
+    .ax .crw:where(:not(.addf)) > :nth-child(4) { grid-area: ot; }
+    .ax .crw:where(:not(.addf)) > .amt { grid-area: amt; }
+    .ax .crw:where(:not(.addf)) > .rm { grid-area: rm; justify-self: end; }
+    .ax .crw .ot { width: 100%; }
+  }
+}
+
 @media screen and (max-width: 640px) {
   .ax .top h1 { font-size: 20px; }
   .ax .top > div:first-child { flex: 1 1 100%; }

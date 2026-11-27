@@ -65,7 +65,7 @@ export type PayIn = { crew_id: string; name: string; method: string; days: numbe
 export async function payCrew(week_start: string, pay_date: string, list: PayIn[]): Promise<R> {
   const { userId, company, perm } = await requireCompany();
   if (!perm.wages) return { error: "จ่ายค่าแรงได้เฉพาะฝ่ายบัญชีหรือเจ้าของ" };
-  if (!isDate(week_start) || new Date(week_start + "T00:00:00Z").getUTCDay() !== 1) return { error: "สัปดาห์ไม่ถูกต้อง" };
+  if (!isDate(week_start) || new Date(week_start + "T00:00:00Z").getUTCDay() !== 6) return { error: "สัปดาห์ไม่ถูกต้อง" };
   if (!isDate(pay_date)) return { error: "ใส่วันที่จ่าย" };
   if (!list.length) return { error: "ไม่มีรายการที่จะจ่าย" };
   const rows = [];
