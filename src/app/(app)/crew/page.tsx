@@ -5,7 +5,7 @@ import { crewPaysV, crewV, dailyV } from "@/lib/data/views";
 import { loadWorld } from "@/lib/world";
 import { todayBkk } from "@/lib/calc";
 import { coHead } from "@/lib/docs";
-import { type Advance, type Car, type CrewDay, type CrewRec, type Fuel, type World, weekOf } from "@/lib/model";
+import { type Advance, type Car, type CrewDay, type CrewRec, type Fuel, type World, payWeekDay, weekOf } from "@/lib/model";
 import type { LogLite, PayLite } from "@/lib/crewpay";
 import { CrewView, type CrewTab } from "./CrewView";
 
@@ -20,7 +20,7 @@ export default async function CrewPage({ searchParams }: { searchParams: Promise
   const tabs: CrewTab[] = [...(perm.wages ? ["pay" as const] : []), "crew", ...(perm.daily ? ["adv" as const] : []), ...(perm.fuel ? ["fuel" as const] : [])];
   const tab: CrewTab = tabs.includes(sp.tab as CrewTab) ? (sp.tab as CrewTab) : tabs[0];
   const today = todayBkk();
-  const day = isDate(sp.d) ? sp.d! : today;
+  const day = isDate(sp.d) ? sp.d! : payWeekDay(today);
   const cid = company.id;
   const wk = weekOf(day);
 

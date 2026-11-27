@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "@/lib/db/sql";
+import { weekOf } from "@/lib/model";
 import { hasAny, routeInScope } from "./perm-db";
 
 type WorkItem = { r: string; km?: number | null; fin?: boolean | null };
@@ -25,14 +26,6 @@ async function medianWage(companyId: string) {
   return sorted[Math.ceil(0.5 * sorted.length) - 1];
 }
 
-/** วันจันทร์ของสัปดาห์ (ISO) ของวันที่ "YYYY-MM-DD" */
-function weekStart(date: string) {
-  const d = new Date(date + "T00:00:00Z");
-  const dow = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() - (dow - 1));
-  return d.toISOString().slice(0, 10);
-}
-
 // พอร์ตจาก public.save_daily (รุ่น 0007) — เดิมใช้ auth.uid() ตอนนี้รับ userId ตรงๆ
 // · คนที่ไม่ใช่บัญชี: ค่าแรง/OT ใช้ของเดิมหรือจากรายชื่อลูกจ้าง ส่งมาเท่าไรก็ไม่นับ
 // · งานของสายที่อยู่นอกขอบเขตของผู้บันทึกจะถูกเก็บไว้เหมือนเดิม
@@ -55,7 +48,7 @@ export async function saveDaily(
   const [old] = await sql<DailyRow[]>`select * from daily_logs where company_id = ${companyId} and log_date = ${date}`;
   const acct = await hasAny(companyId, userId, ["account"]);
   const paidRows = await sql<{ crew_id: string }[]>`
-    select crew_id from crew_pays where company_id = ${companyId} and week_start = ${weekStart(date)}
+    select crew_id from crew_pays where company_id = ${companyId} and week_start = ${weekOf(date)[0]}
   `;
   const paid = new Set(paidRows.map((p) => p.crew_id));
 

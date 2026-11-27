@@ -4,7 +4,7 @@ import { sql } from "@/lib/db/sql";
 import { dailyV } from "@/lib/data/views";
 import { loadDocs, loadWorld } from "@/lib/world";
 import { docTodos, poStep } from "@/lib/docboard";
-import { currentRound, hasPo, weekOf, workIndex } from "@/lib/model";
+import { currentRound, hasPo, payWeekDay, weekOf, workIndex } from "@/lib/model";
 import { todayBkk } from "@/lib/calc";
 import { pendingJoins } from "@/lib/data/join";
 
@@ -26,7 +26,7 @@ export async function navBadges(): Promise<Badges> {
     }
     if (perm.wages) {
       jobs.push((async () => {
-        const wk = weekOf(todayBkk());
+        const wk = weekOf(payWeekDay(todayBkk()));
         const [logs, pays] = await Promise.all([
           dailyV(who, sql`and log_date >= ${wk[0]} and log_date <= ${wk[6]}`),
           sql<{ crew_id: string }[]>`select crew_id from crew_pays where company_id = ${company.id} and week_start = ${wk[0]}`,

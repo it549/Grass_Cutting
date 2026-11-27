@@ -588,10 +588,10 @@ create table if not exists public.crew_advances (
 );
 create index if not exists crew_advances_company_idx on public.crew_advances (company_id, adv_date);
 
--- จ่ายค่าแรงรายสัปดาห์ (จันทร์ของสัปดาห์) · จ่ายแล้ววันของคนนั้นในสัปดาห์จะล็อก
+-- จ่ายค่าแรงรายสัปดาห์ (รอบเสาร์–ศุกร์ เก็บวันเสาร์ต้นรอบ) · จ่ายแล้ววันของคนนั้นในสัปดาห์จะล็อก
 create table if not exists public.crew_pays (
   company_id uuid not null references public.companies (id) on delete cascade,
-  week_start date not null check (extract(isodow from week_start) = 1),
+  week_start date not null,
   crew_id uuid not null references public.crew (id) on delete cascade,
   name text not null default '',
   pay_date date not null,
@@ -605,6 +605,10 @@ create table if not exists public.crew_pays (
   created_at timestamptz not null default now(),
   primary key (company_id, week_start, crew_id)
 );
+-- ฐานข้อมูลเดิมเก็บรอบเป็นวันจันทร์ ย้ายเป็นวันเสาร์ก่อนหน้า (รันซ้ำได้)
+alter table public.crew_pays drop constraint if exists crew_pays_week_start_check;
+update public.crew_pays set week_start = week_start - 2 where extract(isodow from week_start) = 1;
+alter table public.crew_pays add constraint crew_pays_week_start_check check (extract(isodow from week_start) = 6);
 
 alter table public.daily_logs
   add column if not exists water numeric(12, 2) not null default 0,

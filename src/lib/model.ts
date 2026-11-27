@@ -244,6 +244,12 @@ export const WD = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 export const WDL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 export const addDaysIso = (iso: string, n: number) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export const wdOf = (iso: string) => new Date(iso + "T00:00:00Z").getUTCDay();
-/** จันทร์–อาทิตย์ของสัปดาห์ที่มีวันนี้ */
-export const weekOf = (iso: string) => { const k = (wdOf(iso) + 6) % 7, a = addDaysIso(iso, -k); return [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysIso(a, i)); };
+/** รอบค่าแรง 7 วันที่มีวันนี้: เสาร์ → ศุกร์ (ตัดรอบวันศุกร์) */
+export const weekOf = (iso: string) => { const k = (wdOf(iso) + 1) % 7, a = addDaysIso(iso, -k); return [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysIso(a, i)); };
+/** วันจ่ายค่าแรงของรอบ: วันเสาร์ถัดจากวันศุกร์ที่ตัดรอบ */
+export const payDateOf = (wk0: string) => addDaysIso(wk0, 7);
+/** วันที่ใช้เลือกรอบที่ต้องจ่าย: วันเสาร์เป็นวันจ่าย จึงดูรอบที่เพิ่งตัดเมื่อวาน */
+export const payWeekDay = (today: string) => (wdOf(today) === 6 ? addDaysIso(today, -1) : today);
+/** วันของรอบที่ไม่ใช่วันอาทิตย์ (วันทำงานปกติ 6 วัน) */
+export const noSunday = (wk: string[]) => wk.filter((d) => wdOf(d) !== 0);
 export const dayN = (iso: string) => Number(iso.slice(8, 10));

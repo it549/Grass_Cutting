@@ -9,7 +9,7 @@ import { FuelDialog } from "@/components/FuelDialog";
 import { dL } from "@/lib/print/fmt";
 import {
   type Advance, type Car, type CrewDay, type CrewRec, type DayRec, type Fuel, type Order, type Route, type World,
-  FK, WD, WDL, addDaysIso, cNorm, dS, dShort, dayN, fmt0, fmtKm, fmtN, num, payOf, rInfo, unitOf, wdOf, weekOf, workIndex,
+  FK, WD, WDL, addDaysIso, cNorm, dS, dShort, dayN, fmt0, fmtKm, fmtN, noSunday, num, payOf, rInfo, unitOf, wdOf, weekOf, workIndex,
 } from "@/lib/model";
 import { addCrew, deleteAdvance, deleteDaily, removeDailyCrew, saveAdvance, saveDaily } from "./actions";
 
@@ -192,7 +192,7 @@ export function DailyView({ W, day, today, week, prev, crew, paid, adv, fuel, ca
     } }
 
   // ---------- สัปดาห์ ----------
-  const wDays = wk.slice(0, 6).filter((d) => recDay(d)), miss = wk.slice(0, 6).filter((d) => d < today && !recDay(d));
+  const wDays = noSunday(wk).filter((d) => recDay(d)), miss = noSunday(wk).filter((d) => d < today && !recDay(d));
   const tot = (f: (r: NonNullable<ReturnType<typeof recDay>>, d: string) => number) => wk.reduce((s, d) => { const r = recDay(d); return s + (r ? f(r, d) : 0); }, 0);
   const strip = wk.map((d) => {
     const r = recDay(d), sun = wdOf(d) === 0, ms = !r && !sun && d < today;
@@ -345,7 +345,7 @@ export function DailyView({ W, day, today, week, prev, crew, paid, adv, fuel, ca
             {can.wages && rec ? <DelDay day={day} locked={D.crew.some((x) => x.on && isPaid(x.id))} /> : null}
           </div>
           <div className="card sm2">
-            <h4>สัปดาห์นี้ <span className="m">{sDay(wk[0])} – {sDay(wk[5])} · จ่ายเย็นเสาร์</span></h4>
+            <h4>สัปดาห์นี้ <span className="m">{sDay(wk[0])} – {sDay(wk[6])} · จ่ายเสาร์ถัดไป</span></h4>
             <div className="rw">วันทำงาน<b>{wDays.length}/6 วัน</b></div>
             <div className="rw">ระยะที่ตัด<b>{fmtKm(tot((r) => r.work.reduce((s, w) => s + num(w.km), 0)))} กม.</b></div>
             {can.fuel ? <div className="rw">ค่าใช้จ่ายอื่น<b>{fmt0(tot((r, d) => cost(r, d).o))}</b></div> : null}
